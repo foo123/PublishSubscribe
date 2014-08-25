@@ -1,0 +1,98 @@
+PublishSubscribe.VERSION = 0.3.1
+Handler1
+Array
+(
+    [topic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [originalTopic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [tags] => Array
+        (
+            [0] => Tag1
+            [1] => Tag2
+        )
+
+    [namespaces] => Array
+        (
+        )
+
+)
+
+Array
+(
+    [key1] => value1
+)
+
+Handler2
+Array
+(
+    [topic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [originalTopic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [tags] => Array
+        (
+            [0] => Tag1
+            [1] => Tag2
+        )
+
+    [namespaces] => Array
+        (
+        )
+
+)
+
+Array
+(
+    [key1] => value1
+)
+
+Handler2
+Array
+(
+    [topic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [originalTopic] => Array
+        (
+            [0] => Topic1
+            [1] => SubTopic11
+        )
+
+    [tags] => Array
+        (
+            [0] => Tag1
+            [1] => Tag2
+        )
+
+    [namespaces] => Array
+        (
+            [0] => NS1
+        )
+
+)
+
+Array
+(
+    [key1] => value1
+)
+
