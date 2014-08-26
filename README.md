@@ -57,6 +57,13 @@ pb.on( topic_with_tags_namespaces, handlerFunc );
 // handler automatically is unsubscribed after it is called once
 pb.one( topic_with_tags_namespaces, handlerFunc );
 
+// add/subscribe a handler on top (first) for a topic with (optional) tags and (optional) namespaces
+pb.on1( topic_with_tags_namespaces, handlerFunc );
+
+// add/subscribe a handler only once on top (first) for a topic with (optional) tags and (optional) namespaces
+// handler automatically is unsubscribed after it is called once
+pb.one1( topic_with_tags_namespaces, handlerFunc );
+
 // remove/unsubscribe a specific handler or all handlers matching topic with (optional) tags and (optional) namespaces
 pb.off( topic_with_tags_namespaces [, handlerFunc=null ] );
 
@@ -108,7 +115,7 @@ var handler4 = function(evt, data){
 var pb = new PublishSubscribe( )
 
     .on('Topic1/SubTopic11#Tag1#Tag2', handler1)
-    .on('Topic1/SubTopic11#Tag1#Tag2@NS1', handler2)
+    .on1('Topic1/SubTopic11#Tag1#Tag2@NS1', handler2)
     .on('Topic1/SubTopic11#Tag1#Tag2@NS1@NS2', handler3)
     .off('@NS1@NS2')
     .trigger('Topic1/SubTopic11#Tag2#Tag1', {key1: 'value1'})
@@ -121,14 +128,14 @@ var pb = new PublishSubscribe( )
 **output**
 ```text
 
-PublishSubscribe.VERSION = 0.3.1
-Handler1
+PublishSubscribe.VERSION = 0.3.2
+Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [] }
 { key1: 'value1' }
-Handler2
+Handler1
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],

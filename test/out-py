@@ -1,14 +1,14 @@
 PublishSubscribe Module loaded succesfully
-PublishSubscribe.VERSION = 0.3.1
+PublishSubscribe.VERSION = 0.3.2
 
-Handler1
+Handler2
 
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}
-Handler2
+Handler1
 
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],

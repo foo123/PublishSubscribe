@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.1
+#  @version: 0.3.2
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -291,7 +291,7 @@ def publish( seps, pubsub, topic, data ):
             evt = None
 
 
-def subscribe( seps, pubsub, topic, subscriber, oneOff=False ):
+def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
     if pubsub and callable(subscriber):
         topic = parseTopic( seps, topic )
         tags = OTAG_SEP.join( topic[1] ) 
@@ -300,6 +300,7 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False ):
         nslen = len(namespaces)
         topic = OTOPIC_SEP.join( topic[0] )
         oneOff = (True == oneOff)
+        on1 = (True == on1)
         nshash = { }
         if nslen:
             for ns in namespaces: nshash[ns] = 1
@@ -312,29 +313,50 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False ):
                 if not tags in pubsub['topics'][ topic ]['tags']: 
                     pubsub['topics'][ topic ]['tags'][ tags ] = {'namespaces': {}, 'list': []}
                 if nslen:
-                    pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                    if on1:
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                    else:
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
                     updateNamespaces( pubsub['topics'][ topic ]['tags'][ tags ]['namespaces'], namespaces, nslen )
                 else:
-                    pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
+                    if on1:
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, False, []] )
+                    else:
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
             else:
                 if nslen:
-                    pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                    if on1:
+                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                    else:
+                        pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
                     updateNamespaces( pubsub['topics'][ topic ]['notags']['namespaces'], namespaces, nslen )
                 else:
-                    pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, False, []] )
+                    if on1:
+                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, [subscriber, oneOff, False, []] )
+                    else:
+                        pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, False, []] )
         
         else:
             if tagslen:
                 if not tags in pubsub['notopics']['tags']: 
                     pubsub['notopics']['tags'][ tags ] = {'namespaces': {}, 'list': []}
                 if nslen:
-                    pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                    if on1:
+                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                    else:
+                        pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
                     updateNamespaces( pubsub['notopics']['tags'][ tags ]['namespaces'], namespaces, nslen )
                 else:
-                    pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
+                    if on1:
+                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, False, []] )
+                    else:
+                        pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
                     
             elif nslen:
-                pubsub['notopics']['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                if on1:
+                    pubsub['notopics']['notags']['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                else:
+                    pubsub['notopics']['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
                 updateNamespaces( pubsub['notopics']['notags']['namespaces'], namespaces, nslen )
 
 
@@ -434,7 +456,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.1"
+    VERSION = "0.3.2"
     
     Event = PublishSubscribeEvent
     
@@ -477,6 +499,20 @@ class PublishSubscribe:
         if callback and callable(callback):
             #print( pprint.pformat(self._pubsub, 4) )
             subscribe( self._seps, self._pubsub, message, callback, True )
+            #print( pprint.pformat(self._pubsub, 4) )
+        return self
+    
+    def on1( self, message, callback ):
+        if callback and callable(callback):
+            #print( pprint.pformat(self._pubsub, 4) )
+            subscribe( self._seps, self._pubsub, message, callback, False, True )
+            #print( pprint.pformat(self._pubsub, 4) )
+        return self
+    
+    def one1( self, message, callback ):
+        if callback and callable(callback):
+            #print( pprint.pformat(self._pubsub, 4) )
+            subscribe( self._seps, self._pubsub, message, callback, True, True )
             #print( pprint.pformat(self._pubsub, 4) )
         return self
     

@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.1
+*  @version: 0.3.2
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -25,7 +25,7 @@
     
     "use strict";
     
-    var __version__ = "0.3.1", 
+    var __version__ = "0.3.2", 
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
         KEYS = Object.keys;
@@ -455,7 +455,7 @@
         }
     }
     
-    function subscribe( seps, pubsub, topic, subscriber, oneOff )
+    function subscribe( seps, pubsub, topic, subscriber, oneOff, on1 )
     {
         if ( pubsub && "function" === typeof(subscriber) )
         {
@@ -464,6 +464,7 @@
                 namespaces = topic[2], nshash, namespaces_ref, n, nslen = namespaces.length;
             topic = topic[0].join( OTOPIC_SEP );
             oneOff = (true === oneOff);
+            on1 = (true === on1);
             
             nshash = { };
             if ( nslen )
@@ -485,24 +486,36 @@
                         pubsub.topics[ topic ].tags[ tags ] = {namespaces: {}, list: []};
                     if ( nslen )
                     {
-                        pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                        if ( on1 )
+                            pubsub.topics[ topic ].tags[ tags ].list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                        else
+                            pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
                         updateNamespaces( pubsub.topics[ topic ].tags[ tags ].namespaces, namespaces, nslen );
                     }
                     else
                     {
-                        pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, false, []] );
+                        if ( on1 )
+                            pubsub.topics[ topic ].tags[ tags ].list.unshift( [subscriber, oneOff, false, []] );
+                        else
+                            pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, false, []] );
                     }
                 }
                 else
                 {
                     if ( nslen )
                     {
-                        pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                        if ( on1 )
+                            pubsub.topics[ topic ].notags.list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                        else
+                            pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
                         updateNamespaces( pubsub.topics[ topic ].notags.namespaces, namespaces, nslen );
                     }
                     else
                     {
-                        pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, false, []] );
+                        if ( on1 )
+                            pubsub.topics[ topic ].notags.list.unshift( [subscriber, oneOff, false, []] );
+                        else
+                            pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, false, []] );
                     }
                 }
             }
@@ -514,17 +527,26 @@
                         pubsub.notopics.tags[ tags ] = {namespaces: {}, list: []};
                     if ( nslen )
                     {
-                        pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                        if ( on1 )
+                            pubsub.notopics.tags[ tags ].list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                        else
+                            pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
                         updateNamespaces( pubsub.notopics.tags[ tags ].namespaces, namespaces, nslen );
                     }
                     else
                     {
-                        pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, false, []] );
+                        if ( on1 )
+                            pubsub.notopics.tags[ tags ].list.unshift( [subscriber, oneOff, false, []] );
+                        else
+                            pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, false, []] );
                     }
                 }
                 else if ( nslen )
                 {
-                    pubsub.notopics.notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                    if ( on1 )
+                        pubsub.notopics.notags.list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                    else
+                        pubsub.notopics.notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
                     updateNamespaces( pubsub.notopics.notags.namespaces, namespaces, nslen );
                 }
             }
@@ -737,6 +759,28 @@
             {
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
                 subscribe( self._seps, self._pubsub$, message, callback, true );
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+            }
+            return self;
+        }
+        
+        ,on1: function( message, callback ) {
+            var self = this;
+            if ( callback && "function" === typeof(callback) )
+            {
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+                subscribe( self._seps, self._pubsub$, message, callback, false, true );
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+            }
+            return self;
+        }
+        
+        ,one1: function( message, callback ) {
+            var self = this;
+            if ( callback && "function" === typeof(callback) )
+            {
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+                subscribe( self._seps, self._pubsub$, message, callback, true, true );
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
             }
             return self;

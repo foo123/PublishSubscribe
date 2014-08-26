@@ -38,7 +38,7 @@ function handler4($evt, $data)
 $pb = new PublishSubscribe( );
 $pb
     ->on('Topic1/SubTopic11#Tag1#Tag2', 'handler1')
-    ->on('Topic1/SubTopic11#Tag1#Tag2@NS1', 'handler2')
+    ->on1('Topic1/SubTopic11#Tag1#Tag2@NS1', 'handler2')
     ->on('Topic1/SubTopic11#Tag1#Tag2@NS1@NS2', 'handler3')
     ->off('@NS1@NS2')
     ->trigger('Topic1/SubTopic11#Tag2#Tag1', array('key1'=> 'value1'))
