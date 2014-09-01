@@ -5,10 +5,14 @@ A simple and flexible publish-subscribe pattern implementation for PHP, Python, 
 
 Supports *nested* topics, *tagged* topics and *namespaced* topics.
 
+
+[PublishSubscribe.js](https://raw.githubusercontent.com/foo123/PublishSubscribe/master/src/js/PublishSubscribe.js),  [PublishSubscribe.min.js](https://raw.githubusercontent.com/foo123/PublishSubscribe/master/src/js/PublishSubscribe.min.js)
+
+
 **see also:**  
 
 * [Contemplate](https://github.com/foo123/Contemplate) a light-weight template engine for Node/JS, PHP and Python
-* [ModelView](https://github.com/foo123/modelview.js) a light-weight and flexible MVVM framework based in jQuery
+* [ModelView](https://github.com/foo123/modelview.js) a light-weight and flexible MVVM framework based on jQuery
 * [Dromeo](https://github.com/foo123/Dromeo) a flexible, agnostic router for Node/JS, PHP and Python
 * [Asynchronous](https://github.com/foo123/https://github.com/foo123/asynchronous.js) a simple manager for async, linearised, parallelised, interleaved and sequential tasks for JavaScript
 
