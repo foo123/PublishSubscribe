@@ -6,22 +6,27 @@
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
-!function (root, moduleName, moduleDefinition) {
+!function( root, name, factory ) {
 
+    "use strict";
+    
     //
-    // export the module
+    // export the module, umd-style
     
     // node, CommonJS, etc..
-    if ( 'object' === typeof(module) && module.exports ) module.exports = moduleDefinition();
+    if ( 'object' === typeof(module) && module.exports ) 
+        module.exports = (module.deps = module.deps || {})[ name ] = module.deps[ name ] || (factory.call( root ) || 1);
     
     // AMD, etc..
-    else if ( 'function' === typeof(define) && define.amd ) define( moduleDefinition );
+    else if ( 'function' === typeof(define) && define.amd ) define( name, [ ], function( ){ return factory.call( root ); } );
     
     // browser, etc..
-    else root[ moduleName ] = moduleDefinition();
+    else if ( !(name in root) ) root[ name ] = factory.call( root ) || 1;
 
 
-}(this, 'PublishSubscribe', function( undef ) {
+}(  /* current root */          this, 
+    /* module name */           "PublishSubscribe",
+    /* module factory */        function( undef ) {
     
     "use strict";
     
