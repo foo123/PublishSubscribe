@@ -29,7 +29,7 @@
 
 }(  /* current root */          this, 
     /* module name */           "PublishSubscribe",
-    /* module factory */        function( undef ) {
+    /* module factory */        function( exports, undef ) {
     
     "use strict";
     
