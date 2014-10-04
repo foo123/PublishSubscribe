@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.2
+#  @version: 0.3.3
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -259,30 +259,39 @@ def publish( seps, pubsub, topic, data ):
             subscribers = t[ 3 ]
             # create a copy avoid mutation of pubsub during notifications
             subs = [ ]
-            oneOffs = [ ]
+            #oneOffs = [ ]
             sl = len(subscribers['list'])
             slr = range(sl)
             for s in slr:
                 if (not hasNamespace) or (subscribers['list'][ s ][ 2 ] and matchNamespace(subscribers['list'][ s ][ 2 ], namespaces)):
-                    if subscribers['list'][ s ][ 1 ]: oneOffs.append( s )
+                    #if subscribers['list'][ s ][ 1 ]: oneOffs.append( s )
                     subs.append( subscribers['list'][ s ] )
             
             # unsubscribeOneOffs
-            ool = len(oneOffs)
-            while ool:
-                pos = oneOffs.pop( )
-                if subscribers['list'][pos][2]:
-                    removeNamespaces( subscribers['namespaces'], subscribers['list'][pos][2].keys() )
-                del subscribers['list'][pos:pos+1]
-                ool -= 1
+            #ool = len(oneOffs)
+            #while ool:
+            #    pos = oneOffs.pop( )
+            #    if subscribers['list'][pos][2]:
+            #        removeNamespaces( subscribers['namespaces'], subscribers['list'][pos][2].keys() )
+            #    del subscribers['list'][pos:pos+1]
+            #    ool -= 1
             
             for subscriber in subs:
                 if hasNamespace: evt.namespaces = subscriber[ 3 ][:]
                 else: evt.namespaces = []
+                subscriber[ 4 ] = 1 # subscriber called
                 res = subscriber[ 0 ]( evt, data )
                 # stop event propagation
                 if (False == res) or evt.eventStopped(): break
             
+            # unsubscribeOneOffs
+            if ('list' in subscribers) and len(subscribers['list']) > 0:
+                subs = subscribers['list']
+                for s in range(len(subs)-1,-1,-1):
+                    subscriber = subs[ s ]
+                    if subscriber[1] and subscriber[4] > 0:
+                        del subs[s:s+1]
+                    
             # stop event bubble propagation
             if evt.propagationStopped(): break
         
@@ -313,50 +322,57 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
                 if not tags in pubsub['topics'][ topic ]['tags']: 
                     pubsub['topics'][ topic ]['tags'][ tags ] = {'namespaces': {}, 'list': []}
                 if nslen:
+                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
                     if on1:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, entry )
                     else:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( entry )
                     updateNamespaces( pubsub['topics'][ topic ]['tags'][ tags ]['namespaces'], namespaces, nslen )
                 else:
+                    entry = [subscriber, oneOff, False, [], 0]
                     if on1:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, False, []] )
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, entry )
                     else:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
+                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( entry )
             else:
                 if nslen:
+                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
                     if on1:
-                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, entry )
                     else:
-                        pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['topics'][ topic ]['notags']['list'].append( entry )
                     updateNamespaces( pubsub['topics'][ topic ]['notags']['namespaces'], namespaces, nslen )
                 else:
+                    entry = [subscriber, oneOff, False, [], 0]
                     if on1:
-                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, [subscriber, oneOff, False, []] )
+                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, entry )
                     else:
-                        pubsub['topics'][ topic ]['notags']['list'].append( [subscriber, oneOff, False, []] )
+                        pubsub['topics'][ topic ]['notags']['list'].append( entry )
         
         else:
             if tagslen:
                 if not tags in pubsub['notopics']['tags']: 
                     pubsub['notopics']['tags'][ tags ] = {'namespaces': {}, 'list': []}
                 if nslen:
+                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
                     if on1:
-                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, entry )
                     else:
-                        pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                        pubsub['notopics']['tags'][ tags ]['list'].append( entry )
                     updateNamespaces( pubsub['notopics']['tags'][ tags ]['namespaces'], namespaces, nslen )
                 else:
+                    entry = [subscriber, oneOff, False, [], 0]
                     if on1:
-                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, [subscriber, oneOff, False, []] )
+                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, entry )
                     else:
-                        pubsub['notopics']['tags'][ tags ]['list'].append( [subscriber, oneOff, False, []] )
+                        pubsub['notopics']['tags'][ tags ]['list'].append( entry )
                     
             elif nslen:
+                entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
                 if on1:
-                    pubsub['notopics']['notags']['list'].insert( 0, [subscriber, oneOff, nshash, namespaces_ref] )
+                    pubsub['notopics']['notags']['list'].insert( 0, entry )
                 else:
-                    pubsub['notopics']['notags']['list'].append( [subscriber, oneOff, nshash, namespaces_ref] )
+                    pubsub['notopics']['notags']['list'].append( entry )
                 updateNamespaces( pubsub['notopics']['notags']['namespaces'], namespaces, nslen )
 
 
@@ -456,7 +472,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.2"
+    VERSION = "0.3.3"
     
     Event = PublishSubscribeEvent
     

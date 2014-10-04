@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.2
+*  @version: 0.3.3
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -81,7 +81,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "0.3.2";
+    const VERSION = "0.3.3";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';
@@ -387,19 +387,19 @@ class PublishSubscribe implements PublishSubscribeInterface
                 $subscribers =& $t[ 3 ];
                 // create a copy avoid mutation of pubsub during notifications
                 $subs = array();
-                $oneOffs = array();
+                //$oneOffs = array();
                 $sl = count($subscribers['list']);
                 for ($s=0; $s<$sl; $s++)
                 {
                     if ( !$hasNamespace || ($subscribers['list'][ $s ][ 2 ] && self::matchNamespace($subscribers['list'][ $s ][ 2 ], $namespaces)) ) 
                     {
-                        if ($subscribers['list'][ $s ][ 1 ]) $oneOffs[] = $s;
-                        $subs[] = $subscribers['list'][ $s ];
+                        //if ($subscribers['list'][ $s ][ 1 ]) $oneOffs[] = $s;
+                        $subs[] =& $subscribers['list'][ $s ];
                     }
                 }
                 
                 // unsubscribeOneOffs
-                while ( !empty($oneOffs) )
+                /*while ( !empty($oneOffs) )
                 {
                     $pos = array_pop($oneOffs);
                     if ( $subscribers['list'][$pos][2] )
@@ -408,15 +408,29 @@ class PublishSubscribe implements PublishSubscribeInterface
                         self::removeNamespaces( $subscribers['namespaces'], $nskeys );
                     }
                     array_splice( $subscribers['list'], $pos, 1 );
-                }
+                }*/
                 
                 foreach ($subs as $subscriber)
                 {
                     if ( $hasNamespace ) $evt->namespaces = array_merge(array(), $subscriber[ 3 ]);
                     else $evt->namespaces = array( );
+                    $subscriber[ 4 ] = 1; // subscriber called
                     $res = call_user_func( $subscriber[ 0 ], $evt, $data );
                     // stop event propagation
                     if ( (false === $res) || $evt->eventStopped() ) break;
+                }
+                
+                // unsubscribeOneOffs
+                if ( isset($subscribers['list']) && count($subscribers['list']) > 0 )
+                {
+                    $subs =& $subscribers['list'];
+                    $sl = count($subs);
+                    for ($s=$sl-1; $s>=0; $s--)
+                    {
+                        $subscriber =& $subs[ $s ];
+                        if ( $subscriber[1] && $subscriber[4] > 0 )
+                            array_splice( $subs, $s, 1 );
+                    }
                 }
                 
                 // stop event bubble propagation
@@ -464,36 +478,40 @@ class PublishSubscribe implements PublishSubscribeInterface
                         $pubsub['topics'][ $topic ]['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array());
                     if ( $nslen )
                     {
+                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
                         if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
                         else
-                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
                         self::updateNamespaces( $pubsub['topics'][ $topic ]['tags'][ $tags ]['namespaces'], $namespaces, $nslen );
                     }
                     else
                     {
+                        $entry = array($subscriber, $oneOff, false, array(), 0);
                         if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], array($subscriber, $oneOff, false, array()));
+                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
                         else
-                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], array($subscriber, $oneOff, false, array()));
+                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
                     }
                 }
                 else
                 {
                     if ( $nslen )
                     {
+                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
                         if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], $entry);
                         else
-                            array_push($pubsub['topics'][ $topic ]['notags']['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_push($pubsub['topics'][ $topic ]['notags']['list'], $entry);
                         self::updateNamespaces( $pubsub['topics'][ $topic ]['notags']['namespaces'], $namespaces, $nslen );
                     }
                     else
                     {
+                        $entry = array($subscriber, $oneOff, false, array(), 0);
                         if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], array($subscriber, $oneOff, false, array()));
+                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], $entry);
                         else
-                            array_push($pubsub['topics'][ $topic ]['notags']['list'], array($subscriber, $oneOff, false, array()));
+                            array_push($pubsub['topics'][ $topic ]['notags']['list'], $entry);
                     }
                 }
             }
@@ -505,26 +523,29 @@ class PublishSubscribe implements PublishSubscribeInterface
                         $pubsub['notopics']['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array());
                     if ( $nslen )
                     {
+                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
                         if ( $on1 )
-                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
                         else
-                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
                         self::updateNamespaces( $pubsub['notopics']['tags'][ $tags ]['namespaces'], $namespaces, $nslen );
                     }
                     else
                     {
+                        $entry = array($subscriber, $oneOff, false, array(), 0);
                         if ( $on1 )
-                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], array($subscriber, $oneOff, false, array()));
+                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
                         else
-                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], array($subscriber, $oneOff, false, array()));
+                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
                     }
                 }
                 elseif ( $nslen )
                 {
+                    $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
                     if ( $on1 )
-                        array_unshift($pubsub['notopics']['notags']['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                        array_unshift($pubsub['notopics']['notags']['list'], $entry);
                     else
-                        array_push($pubsub['notopics']['notags']['list'], array($subscriber, $oneOff, $nshash, $namespaces_ref));
+                        array_push($pubsub['notopics']['notags']['list'], $entry);
                     self::updateNamespaces( $pubsub['notopics']['notags']['namespaces'], $namespaces, $nslen );
                 }
             }

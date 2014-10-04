@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.2
+*  @version: 0.3.3
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -33,7 +33,7 @@
     
     "use strict";
     
-    var __version__ = "0.3.2", 
+    var __version__ = "0.3.3", 
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
         KEYS = Object.keys;
@@ -392,7 +392,7 @@
         {
             var topics = getSubscribedTopics( seps, pubsub, topic ), 
                 t, s, tl, sl, subs, subscribers, subscriber, topTopic, subTopic,
-                tags, namespaces, hasNamespace, nl, evt, oneOffs, res, pos, nskeys
+                tags, namespaces, hasNamespace, nl, evt, /*oneOffs,*/ res, pos, nskeys
             ;
             topTopic = topics[ 0 ];
             namespaces = topics[ 2 ];
@@ -417,19 +417,19 @@
                 subscribers = topics[ t ][ 3 ];
                 // create a copy avoid mutation of pubsub during notifications
                 subs = [ ];
-                oneOffs = [ ];
+                //oneOffs = [ ];
                 sl = subscribers.list.length;
                 for (s=0; s<sl; s++)
                 {
                     if ( !hasNamespace || (subscribers.list[ s ][ 2 ] && matchNamespace(subscribers.list[ s ][ 2 ], namespaces, nl)) ) 
                     {
-                        if ( subscribers.list[ s ][ 1 ] ) oneOffs.push( s );
+                        //if ( subscribers.list[ s ][ 1 ] ) oneOffs.push( s );
                         subs.push( subscribers.list[ s ] );
                     }
                 }
                 
                 // unsubscribeOneOffs
-                while ( oneOffs.length )
+                /*while ( oneOffs.length )
                 {
                     pos = oneOffs.pop( );
                     if ( subscribers.list[ pos ][ 2 ] )
@@ -438,7 +438,7 @@
                         removeNamespaces( subscribers.namespaces, nskeys, nskeys.length );
                     }
                     subscribers.list.splice( pos, 1 );
-                }
+                }*/
                 
                 sl = subs.length;
                 for (s=0; s<sl; s++)
@@ -446,9 +446,21 @@
                     subscriber = subs[ s ];
                     if ( hasNamespace ) evt.namespaces = subscriber[ 3 ].slice( 0 );
                     else evt.namespaces = [ ];
+                    subscriber[ 4 ] = 1; // subscriber called
                     res = subscriber[ 0 ]( evt, data );
                     // stop event propagation
                     if ( (false === res) || evt.eventStopped() ) break;
+                }
+                
+                // unsubscribeOneOffs
+                if ( (subs=subscribers.list) && (sl=subs.length) )
+                {
+                    for (s=sl-1; s>=0; s--)
+                    {
+                        subscriber = subs[ s ];
+                        if ( subscriber[1] && subscriber[4] > 0 )
+                            subs.splice( s, 1 );
+                    }
                 }
                 
                 // stop event bubble propagation
@@ -468,7 +480,7 @@
         if ( pubsub && "function" === typeof(subscriber) )
         {
             topic = parseTopic( seps, topic );
-            var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length,
+            var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length, entry,
                 namespaces = topic[2], nshash, namespaces_ref, n, nslen = namespaces.length;
             topic = topic[0].join( OTOPIC_SEP );
             oneOff = (true === oneOff);
@@ -494,36 +506,40 @@
                         pubsub.topics[ topic ].tags[ tags ] = {namespaces: {}, list: []};
                     if ( nslen )
                     {
+                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
                         if ( on1 )
-                            pubsub.topics[ topic ].tags[ tags ].list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.topics[ topic ].tags[ tags ].list.unshift( entry );
                         else
-                            pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.topics[ topic ].tags[ tags ].list.push( entry );
                         updateNamespaces( pubsub.topics[ topic ].tags[ tags ].namespaces, namespaces, nslen );
                     }
                     else
                     {
+                        entry = [subscriber, oneOff, false, [], 0];
                         if ( on1 )
-                            pubsub.topics[ topic ].tags[ tags ].list.unshift( [subscriber, oneOff, false, []] );
+                            pubsub.topics[ topic ].tags[ tags ].list.unshift( entry );
                         else
-                            pubsub.topics[ topic ].tags[ tags ].list.push( [subscriber, oneOff, false, []] );
+                            pubsub.topics[ topic ].tags[ tags ].list.push( entry );
                     }
                 }
                 else
                 {
                     if ( nslen )
                     {
+                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
                         if ( on1 )
-                            pubsub.topics[ topic ].notags.list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.topics[ topic ].notags.list.unshift( entry );
                         else
-                            pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.topics[ topic ].notags.list.push( entry );
                         updateNamespaces( pubsub.topics[ topic ].notags.namespaces, namespaces, nslen );
                     }
                     else
                     {
+                        entry = [subscriber, oneOff, false, [], 0];
                         if ( on1 )
-                            pubsub.topics[ topic ].notags.list.unshift( [subscriber, oneOff, false, []] );
+                            pubsub.topics[ topic ].notags.list.unshift( entry );
                         else
-                            pubsub.topics[ topic ].notags.list.push( [subscriber, oneOff, false, []] );
+                            pubsub.topics[ topic ].notags.list.push( entry );
                     }
                 }
             }
@@ -535,26 +551,29 @@
                         pubsub.notopics.tags[ tags ] = {namespaces: {}, list: []};
                     if ( nslen )
                     {
+                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
                         if ( on1 )
-                            pubsub.notopics.tags[ tags ].list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.notopics.tags[ tags ].list.unshift( entry );
                         else
-                            pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                            pubsub.notopics.tags[ tags ].list.push( entry );
                         updateNamespaces( pubsub.notopics.tags[ tags ].namespaces, namespaces, nslen );
                     }
                     else
                     {
+                        entry = [subscriber, oneOff, false, [], 0];
                         if ( on1 )
-                            pubsub.notopics.tags[ tags ].list.unshift( [subscriber, oneOff, false, []] );
+                            pubsub.notopics.tags[ tags ].list.unshift( entry );
                         else
-                            pubsub.notopics.tags[ tags ].list.push( [subscriber, oneOff, false, []] );
+                            pubsub.notopics.tags[ tags ].list.push( entry );
                     }
                 }
                 else if ( nslen )
                 {
+                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
                     if ( on1 )
-                        pubsub.notopics.notags.list.unshift( [subscriber, oneOff, nshash, namespaces_ref] );
+                        pubsub.notopics.notags.list.unshift( entry );
                     else
-                        pubsub.notopics.notags.list.push( [subscriber, oneOff, nshash, namespaces_ref] );
+                        pubsub.notopics.notags.list.push( entry );
                     updateNamespaces( pubsub.notopics.notags.namespaces, namespaces, nslen );
                 }
             }

@@ -20,9 +20,7 @@ Supports *nested* topics, *tagged* topics and *namespaced* topics.
 **Topic/Event structure:**
 
 ```text
-
 [Topic1[/SubTopic11/SubTopic111 ...]][#Tag1[#Tag2 ...]][@NAMESPACE1[@NAMESPACE2 ...]]
-
 ```
 
 * A topic can be **nested** with one or more levels, all matching levels will be notified (in order of specific to general)
@@ -132,7 +130,7 @@ var pb = new PublishSubscribe( )
 **output**
 ```text
 
-PublishSubscribe.VERSION = 0.3.2
+PublishSubscribe.VERSION = 0.3.3
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
