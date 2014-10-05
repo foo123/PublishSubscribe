@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.3
+*  @version: 0.3.4
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -33,14 +33,15 @@
     
     "use strict";
     
-    var __version__ = "0.3.3", 
+    var __version__ = "0.3.4", 
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
         KEYS = Object.keys;
     
-    function PublishSubscribeEvent(topic, original, tags, namespaces)
+    function PublishSubscribeEvent(target, topic, original, tags, namespaces)
     {
         var self = this;
+        self.target = target;
         if ( topic )  self.topic = [].concat( topic );
         else self.topic = [ ];
         if ( original )  self.originalTopic = [].concat( original );
@@ -54,6 +55,7 @@
     }
     PublishSubscribeEvent.prototype = {
         constructor: PublishSubscribeEvent,
+        target: null,
         topic: null,
         originalTopic: null,
         tags: null,
@@ -64,6 +66,7 @@
         
         dispose: function( ) {
             var self = this;
+            self.target = null;
             self.topic = null;
             self.originalTopic = null;
             self.tags = null;
@@ -95,7 +98,7 @@
         }
     };
     
-    function getPubSub( ) { return { notopics: { notags: {namespaces: {}, list: []}, tags: {} }, topics: {} }; }
+    function getPubSub( ) { return { notopics: { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} }, topics: {} }; }
     
     function notEmpty( s ) { return s.length > 0; }
     
@@ -386,13 +389,13 @@
         return [topTopic, subscribedTopics, namespaces];
     }
     
-    function publish( seps, pubsub, topic, data )
+    function publish( target, seps, pubsub, topic, data )
     {
         if ( pubsub )
         {
             var topics = getSubscribedTopics( seps, pubsub, topic ), 
                 t, s, tl, sl, subs, subscribers, subscriber, topTopic, subTopic,
-                tags, namespaces, hasNamespace, nl, evt, /*oneOffs,*/ res, pos, nskeys
+                tags, namespaces, hasNamespace, nl, evt, res, pos, nskeys
             ;
             topTopic = topics[ 0 ];
             namespaces = topics[ 2 ];
@@ -403,7 +406,7 @@
             
             if ( tl > 0 ) 
             {
-                evt = new PublishSubscribeEvent( );
+                evt = new PublishSubscribeEvent( target );
                 evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
             }
             
@@ -417,28 +420,14 @@
                 subscribers = topics[ t ][ 3 ];
                 // create a copy avoid mutation of pubsub during notifications
                 subs = [ ];
-                //oneOffs = [ ];
                 sl = subscribers.list.length;
                 for (s=0; s<sl; s++)
                 {
                     if ( !hasNamespace || (subscribers.list[ s ][ 2 ] && matchNamespace(subscribers.list[ s ][ 2 ], namespaces, nl)) ) 
                     {
-                        //if ( subscribers.list[ s ][ 1 ] ) oneOffs.push( s );
                         subs.push( subscribers.list[ s ] );
                     }
                 }
-                
-                // unsubscribeOneOffs
-                /*while ( oneOffs.length )
-                {
-                    pos = oneOffs.pop( );
-                    if ( subscribers.list[ pos ][ 2 ] )
-                    {
-                        nskeys = KEYS(subscribers.list[ pos ][ 2 ]);
-                        removeNamespaces( subscribers.namespaces, nskeys, nskeys.length );
-                    }
-                    subscribers.list.splice( pos, 1 );
-                }*/
                 
                 sl = subs.length;
                 for (s=0; s<sl; s++)
@@ -455,11 +444,21 @@
                 // unsubscribeOneOffs
                 if ( (subs=subscribers.list) && (sl=subs.length) )
                 {
-                    for (s=sl-1; s>=0; s--)
+                    if ( subscribers.oneOffs > 0 )
                     {
-                        subscriber = subs[ s ];
-                        if ( subscriber[1] && subscriber[4] > 0 )
-                            subs.splice( s, 1 );
+                        for (s=sl-1; s>=0; s--)
+                        {
+                            subscriber = subs[ s ];
+                            if ( subscriber[1] && subscriber[4] > 0 )
+                            {
+                                subs.splice( s, 1 );
+                                subscribers.oneOffs = subscribers.oneOffs > 0 ? (subscribers.oneOffs-1) : 0;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        subscribers.oneOffs = 0;
                     }
                 }
                 
@@ -480,7 +479,7 @@
         if ( pubsub && "function" === typeof(subscriber) )
         {
             topic = parseTopic( seps, topic );
-            var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length, entry,
+            var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length, entry, queue,
                 namespaces = topic[2], nshash, namespaces_ref, n, nslen = namespaces.length;
             topic = topic[0].join( OTOPIC_SEP );
             oneOff = (true === oneOff);
@@ -496,51 +495,22 @@
             }
             namespaces_ref = namespaces.slice( 0 );
             
+            queue = null;
             if ( topic.length )
             {
                 if ( !(topic in pubsub.topics) ) 
-                    pubsub.topics[ topic ] = { notags: {namespaces: {}, list: []}, tags: {} };
+                    pubsub.topics[ topic ] = { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} };
+                
                 if ( tagslen )
                 {
                     if ( !(tags in pubsub.topics[ topic ].tags) ) 
-                        pubsub.topics[ topic ].tags[ tags ] = {namespaces: {}, list: []};
-                    if ( nslen )
-                    {
-                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
-                        if ( on1 )
-                            pubsub.topics[ topic ].tags[ tags ].list.unshift( entry );
-                        else
-                            pubsub.topics[ topic ].tags[ tags ].list.push( entry );
-                        updateNamespaces( pubsub.topics[ topic ].tags[ tags ].namespaces, namespaces, nslen );
-                    }
-                    else
-                    {
-                        entry = [subscriber, oneOff, false, [], 0];
-                        if ( on1 )
-                            pubsub.topics[ topic ].tags[ tags ].list.unshift( entry );
-                        else
-                            pubsub.topics[ topic ].tags[ tags ].list.push( entry );
-                    }
+                        pubsub.topics[ topic ].tags[ tags ] = {namespaces: {}, list: [], oneOffs: 0};
+                    
+                    queue = pubsub.topics[ topic ].tags[ tags ];
                 }
                 else
                 {
-                    if ( nslen )
-                    {
-                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
-                        if ( on1 )
-                            pubsub.topics[ topic ].notags.list.unshift( entry );
-                        else
-                            pubsub.topics[ topic ].notags.list.push( entry );
-                        updateNamespaces( pubsub.topics[ topic ].notags.namespaces, namespaces, nslen );
-                    }
-                    else
-                    {
-                        entry = [subscriber, oneOff, false, [], 0];
-                        if ( on1 )
-                            pubsub.topics[ topic ].notags.list.unshift( entry );
-                        else
-                            pubsub.topics[ topic ].notags.list.push( entry );
-                    }
+                    queue = pubsub.topics[ topic ].notags;
                 }
             }
             else
@@ -548,34 +518,25 @@
                 if ( tagslen )
                 {
                     if ( !(tags in pubsub.notopics.tags) ) 
-                        pubsub.notopics.tags[ tags ] = {namespaces: {}, list: []};
-                    if ( nslen )
-                    {
-                        entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
-                        if ( on1 )
-                            pubsub.notopics.tags[ tags ].list.unshift( entry );
-                        else
-                            pubsub.notopics.tags[ tags ].list.push( entry );
-                        updateNamespaces( pubsub.notopics.tags[ tags ].namespaces, namespaces, nslen );
-                    }
-                    else
-                    {
-                        entry = [subscriber, oneOff, false, [], 0];
-                        if ( on1 )
-                            pubsub.notopics.tags[ tags ].list.unshift( entry );
-                        else
-                            pubsub.notopics.tags[ tags ].list.push( entry );
-                    }
+                        pubsub.notopics.tags[ tags ] = {namespaces: {}, list: [], oneOffs: 0};
+                    
+                    queue = pubsub.notopics.tags[ tags ];
                 }
                 else if ( nslen )
                 {
-                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0];
-                    if ( on1 )
-                        pubsub.notopics.notags.list.unshift( entry );
-                    else
-                        pubsub.notopics.notags.list.push( entry );
-                    updateNamespaces( pubsub.notopics.notags.namespaces, namespaces, nslen );
+                    queue = pubsub.notopics.notags;
                 }
+            }
+            if ( null !== queue )
+            {
+                entry = nslen 
+                        ? [subscriber, oneOff, nshash, namespaces_ref, 0]
+                        : [subscriber, oneOff, false, [], 0]
+                    ;
+                if ( on1 ) queue.list.unshift( entry );
+                else queue.list.push( entry );
+                if ( oneOff ) queue.oneOffs++;
+                if ( nslen ) updateNamespaces( queue.namespaces, namespaces, nslen );
             }
         }
     }
@@ -595,6 +556,7 @@
                         {
                             nskeys = KEYS(pb.list[pos][2]);
                             removeNamespaces( pb.namespaces, nskeys, nskeys.length );
+                            if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                             pb.list.splice( pos, 1 );
                         }
                         else if ( !nslen )
@@ -604,6 +566,7 @@
                                 nskeys = KEYS(pb.list[pos][2]);
                                 removeNamespaces( pb.namespaces, nskeys, nskeys.length );
                             }
+                            if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                             pb.list.splice( pos, 1 );
                         }
                     }
@@ -618,6 +581,7 @@
                 {
                     nskeys = KEYS(pb.list[pos][2]);
                     removeNamespaces( pb.namespaces, nskeys, nskeys.length );
+                    if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                     pb.list.splice( pos, 1 );
                 }
             }
@@ -625,6 +589,7 @@
         else if ( !hasSubscriber && (pos > 0) )
         {
             pb.list = [ ];
+            pb.oneOffs = 0;
             pb.namespaces = { };
         }
     }
@@ -738,14 +703,14 @@
         }
         
         ,setSeparators: function( seps ) {
-            if ( seps )
+            var self = this, l;
+            if ( seps && (l=seps.length) )
             {
-                var l = seps.length;
-                if ( l > 0 && seps[0] ) this._seps[0] = seps[0];
-                if ( l > 1 && seps[1] ) this._seps[1] = seps[1];
-                if ( l > 2 && seps[2] ) this._seps[2] = seps[2];
+                if ( l > 0 && seps[0] ) self._seps[0] = seps[0];
+                if ( l > 1 && seps[1] ) self._seps[1] = seps[1];
+                if ( l > 2 && seps[2] ) self._seps[2] = seps[2];
             }
-            return this;
+            return self;
         }
         
         ,trigger: function( message, data, delay ) {
@@ -757,13 +722,13 @@
             if ( delay > 0 )
             {
                 setTimeout(function( ) {
-                    publish( self._seps, self._pubsub$, message, data );
+                    publish( self, self._seps, self._pubsub$, message, data );
                 }, delay);
             }
             else
             {
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
-                publish( self._seps, self._pubsub$, message, data );
+                publish( self, self._seps, self._pubsub$, message, data );
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
             }
             return self;

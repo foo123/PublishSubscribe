@@ -130,7 +130,7 @@ var pb = new PublishSubscribe( )
 **output**
 ```text
 
-PublishSubscribe.VERSION = 0.3.3
+PublishSubscribe.VERSION = 0.3.4
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],

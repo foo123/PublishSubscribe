@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.3
+*  @version: 0.3.4
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -20,6 +20,7 @@ interface PublishSubscribeInterface
 
 class PublishSubscribeEvent
 {
+    public $target = null;
     public $topic = null;
     public $originalTopic = null;
     public $tags = null;
@@ -28,8 +29,9 @@ class PublishSubscribeEvent
     private $_stopPropagation = false;
     private $_stopEvent = false;
     
-    public function __construct($topic=null, $original=null, $tags=null, $namespaces=null)
+    public function __construct(&$target=null, $topic=null, $original=null, $tags=null, $namespaces=null)
     {
+        $this->target = $target;
         if ( $topic ) $this->topic = (array)$topic;
         else  $this->topic = array();
         if ( $original ) $this->originalTopic = (array)$original;
@@ -45,6 +47,7 @@ class PublishSubscribeEvent
     
     public function dispose( ) 
     {
+        $this->target = null;
         $this->topic = null;
         $this->originalTopic = null;
         $this->tags = null;
@@ -81,7 +84,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "0.3.3";
+    const VERSION = "0.3.4";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';
@@ -91,7 +94,7 @@ class PublishSubscribe implements PublishSubscribeInterface
     
     private static function getPubSub( ) 
     { 
-        return array( 'notopics'=> array( 'notags'=> array('namespaces'=> array(), 'list'=> array()), 'tags'=> array() ), 'topics'=> array() );
+        return array( 'notopics'=> array( 'notags'=> array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0), 'tags'=> array() ), 'topics'=> array() );
     }
     
     private static function parseTopic( $seps, $topic )
@@ -358,7 +361,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         return array($topTopic, $subscribedTopics, $namespaces);
     }
     
-    private static function publish( $seps, &$pubsub, $topic, $data )
+    private static function publish( &$target, $seps, &$pubsub, $topic, $data )
     {
         if ( !empty($pubsub) )
         {
@@ -370,7 +373,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             
             if ( !empty($topics) )
             {
-                $evt = new PublishSubscribeEvent( );
+                $evt = new PublishSubscribeEvent( $target );
                 if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
                 else $evt->originalTopic = array( );
             }
@@ -387,28 +390,14 @@ class PublishSubscribe implements PublishSubscribeInterface
                 $subscribers =& $t[ 3 ];
                 // create a copy avoid mutation of pubsub during notifications
                 $subs = array();
-                //$oneOffs = array();
                 $sl = count($subscribers['list']);
                 for ($s=0; $s<$sl; $s++)
                 {
                     if ( !$hasNamespace || ($subscribers['list'][ $s ][ 2 ] && self::matchNamespace($subscribers['list'][ $s ][ 2 ], $namespaces)) ) 
                     {
-                        //if ($subscribers['list'][ $s ][ 1 ]) $oneOffs[] = $s;
                         $subs[] =& $subscribers['list'][ $s ];
                     }
                 }
-                
-                // unsubscribeOneOffs
-                /*while ( !empty($oneOffs) )
-                {
-                    $pos = array_pop($oneOffs);
-                    if ( $subscribers['list'][$pos][2] )
-                    {
-                        $nskeys = array_keys($subscribers['list'][$pos][2]);
-                        self::removeNamespaces( $subscribers['namespaces'], $nskeys );
-                    }
-                    array_splice( $subscribers['list'], $pos, 1 );
-                }*/
                 
                 foreach ($subs as $subscriber)
                 {
@@ -423,13 +412,23 @@ class PublishSubscribe implements PublishSubscribeInterface
                 // unsubscribeOneOffs
                 if ( isset($subscribers['list']) && count($subscribers['list']) > 0 )
                 {
-                    $subs =& $subscribers['list'];
-                    $sl = count($subs);
-                    for ($s=$sl-1; $s>=0; $s--)
+                    if ( $subscribers['oneOffs'] > 0 )
                     {
-                        $subscriber =& $subs[ $s ];
-                        if ( $subscriber[1] && $subscriber[4] > 0 )
-                            array_splice( $subs, $s, 1 );
+                        $subs =& $subscribers['list'];
+                        $sl = count($subs);
+                        for ($s=$sl-1; $s>=0; $s--)
+                        {
+                            $subscriber =& $subs[ $s ];
+                            if ( $subscriber[1] && $subscriber[4] > 0 )
+                            {
+                                array_splice( $subs, $s, 1 );
+                                $subscribers['oneOffs'] = $subscribers['oneOffs'] > 0 ? ($subscribers['oneOffs']-1) : 0;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        $subscribers['oneOffs'] = 0;
                     }
                 }
                 
@@ -468,51 +467,22 @@ class PublishSubscribe implements PublishSubscribeInterface
             }
             $namespaces_ref = array_merge(array(), $namespaces);
             
+            $queue = null;
             if ( strlen($topic) )
             {
                 if ( !isset($pubsub['topics'][ $topic ]) ) 
-                    $pubsub['topics'][ $topic ] = array( 'notags'=> array('namespaces'=> array(), 'list'=> array()), 'tags'=> array() );
+                    $pubsub['topics'][ $topic ] = array( 'notags'=> array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0), 'tags'=> array() );
+                
                 if ( $tagslen )
                 {
                     if ( !isset($pubsub['topics'][ $topic ]['tags'][$tags]) ) 
-                        $pubsub['topics'][ $topic ]['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array());
-                    if ( $nslen )
-                    {
-                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
-                        else
-                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
-                        self::updateNamespaces( $pubsub['topics'][ $topic ]['tags'][ $tags ]['namespaces'], $namespaces, $nslen );
-                    }
-                    else
-                    {
-                        $entry = array($subscriber, $oneOff, false, array(), 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
-                        else
-                            array_push($pubsub['topics'][ $topic ]['tags'][ $tags ]['list'], $entry);
-                    }
+                        $pubsub['topics'][ $topic ]['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
+                    
+                    $queue =& $pubsub['topics'][ $topic ]['tags'][ $tags ];
                 }
                 else
                 {
-                    if ( $nslen )
-                    {
-                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], $entry);
-                        else
-                            array_push($pubsub['topics'][ $topic ]['notags']['list'], $entry);
-                        self::updateNamespaces( $pubsub['topics'][ $topic ]['notags']['namespaces'], $namespaces, $nslen );
-                    }
-                    else
-                    {
-                        $entry = array($subscriber, $oneOff, false, array(), 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['topics'][ $topic ]['notags']['list'], $entry);
-                        else
-                            array_push($pubsub['topics'][ $topic ]['notags']['list'], $entry);
-                    }
+                    $queue =& $pubsub['topics'][ $topic ]['notags'];
                 }
             }
             else
@@ -520,34 +490,23 @@ class PublishSubscribe implements PublishSubscribeInterface
                 if ( $tagslen )
                 {
                     if ( !isset($pubsub['notopics']['tags'][$tags]) ) 
-                        $pubsub['notopics']['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array());
-                    if ( $nslen )
-                    {
-                        $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
-                        else
-                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
-                        self::updateNamespaces( $pubsub['notopics']['tags'][ $tags ]['namespaces'], $namespaces, $nslen );
-                    }
-                    else
-                    {
-                        $entry = array($subscriber, $oneOff, false, array(), 0);
-                        if ( $on1 )
-                            array_unshift($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
-                        else
-                            array_push($pubsub['notopics']['tags'][ $tags ]['list'], $entry);
-                    }
+                        $pubsub['notopics']['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
+                    
+                    $queue =& $pubsub['notopics']['tags'][ $tags ];
                 }
                 elseif ( $nslen )
                 {
-                    $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
-                    if ( $on1 )
-                        array_unshift($pubsub['notopics']['notags']['list'], $entry);
-                    else
-                        array_push($pubsub['notopics']['notags']['list'], $entry);
-                    self::updateNamespaces( $pubsub['notopics']['notags']['namespaces'], $namespaces, $nslen );
+                    $queue =& $pubsub['notopics']['notags'];
                 }
+            }
+            if ( null !== $queue )
+            {
+                if ( $nslen ) $entry = array($subscriber, $oneOff, $nshash, $namespaces_ref, 0);
+                else $entry = array($subscriber, $oneOff, false, array(), 0);
+                if ( $on1 ) array_unshift($queue['list'], $entry);
+                else array_push($queue['list'], $entry);
+                if ( $oneOff ) $queue['oneOffs']++;
+                if ( $nslen ) self::updateNamespaces( $queue['namespaces'], $namespaces, $nslen );
             }
         }
     }
@@ -568,6 +527,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                         {
                             $nskeys = array_keys($pb['list'][$pos][2]);
                             self::removeNamespaces( $pb['namespaces'], $nskeys );
+                            if ( $pb['list'][$pos][1] ) $pb['oneOffs'] = $pb['oneOffs'] > 0 ? ($pb['oneOffs']-1) : 0;
                             array_splice( $pb['list'], $pos, 1 );
                         }
                         elseif ( !$nslen )
@@ -577,6 +537,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                                 $nskeys = array_keys($pb['list'][$pos][2]);
                                 self::removeNamespaces( $pb['namespaces'], $nskeys );
                             }
+                            if ( $pb['list'][$pos][1] ) $pb['oneOffs'] = $pb['oneOffs'] > 0 ? ($pb['oneOffs']-1) : 0;
                             array_splice( $pb['list'], $pos, 1 );
                         }
                     }
@@ -591,6 +552,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                 {
                     $nskeys = array_keys($pb['list'][$pos][2]);
                     self::removeNamespaces( $pb['namespaces'], $nskeys );
+                    if ( $pb['list'][$pos][1] ) $pb['oneOffs'] = $pb['oneOffs'] > 0 ? ($pb['oneOffs']-1) : 0;
                     array_splice( $pb['list'], $pos, 1 );
                 }
             }
@@ -598,6 +560,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         elseif ( !$hasSubscriber && ($pos > 0) )
         {
             $pb['list'] = array( );
+            $pb['oneOffs'] = 0;
             $pb['namespaces'] = array( );
         }
     }
@@ -724,7 +687,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         //$delay = intval($delay);
         if ( !$data ) $data = array();
         //print_r($this->_pubsub);
-        self::publish( $this->_seps, $this->_pubsub, $message, $data );
+        self::publish( $this, $this->_seps, $this->_pubsub, $message, $data );
         //print_r($this->_pubsub);
         return $this;
     }

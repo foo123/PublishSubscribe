@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.3
+#  @version: 0.3.4
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -19,7 +19,8 @@ ONS_SEP = '@'
 
 class PublishSubscribeEvent:
     
-    def __init__( self, topic=None, original=None, tags=None, namespaces=None ):
+    def __init__( self, target=None, topic=None, original=None, tags=None, namespaces=None ):
+        self.target = target
         if topic: self.topic = topic
         else: self.topic = []
         if original: self.originalTopic = original
@@ -33,6 +34,7 @@ class PublishSubscribeEvent:
         self._stopEvent = False
     
     def dispose( self ):
+        self.target = None
         self.topic = None
         self.originalTopic = None
         self.tags = None
@@ -58,7 +60,7 @@ class PublishSubscribeEvent:
 
 
 def getPubSub( ): 
-    return { 'notopics': { 'notags': {'namespaces': {}, 'list': []}, 'tags': {} }, 'topics': {} }
+    return { 'notopics': { 'notags': {'namespaces': {}, 'list': [], 'oneOffs': 0}, 'tags': {} }, 'topics': {} }
     
 def notEmpty( s ): 
     return len(s) > 0
@@ -237,7 +239,7 @@ def getSubscribedTopics( seps, pubsub, atopic ):
     return [topTopic, subscribedTopics, namespaces]
 
 
-def publish( seps, pubsub, topic, data ):
+def publish( target, seps, pubsub, topic, data ):
     if pubsub:
         topics = getSubscribedTopics( seps, pubsub, topic )
         topTopic = topics[ 0 ]
@@ -247,7 +249,7 @@ def publish( seps, pubsub, topic, data ):
         evt = None
         
         if tl > 0:
-            evt = PublishSubscribeEvent( )
+            evt = PublishSubscribeEvent( target )
             evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
             
         for t in topics:
@@ -259,22 +261,11 @@ def publish( seps, pubsub, topic, data ):
             subscribers = t[ 3 ]
             # create a copy avoid mutation of pubsub during notifications
             subs = [ ]
-            #oneOffs = [ ]
             sl = len(subscribers['list'])
             slr = range(sl)
             for s in slr:
                 if (not hasNamespace) or (subscribers['list'][ s ][ 2 ] and matchNamespace(subscribers['list'][ s ][ 2 ], namespaces)):
-                    #if subscribers['list'][ s ][ 1 ]: oneOffs.append( s )
                     subs.append( subscribers['list'][ s ] )
-            
-            # unsubscribeOneOffs
-            #ool = len(oneOffs)
-            #while ool:
-            #    pos = oneOffs.pop( )
-            #    if subscribers['list'][pos][2]:
-            #        removeNamespaces( subscribers['namespaces'], subscribers['list'][pos][2].keys() )
-            #    del subscribers['list'][pos:pos+1]
-            #    ool -= 1
             
             for subscriber in subs:
                 if hasNamespace: evt.namespaces = subscriber[ 3 ][:]
@@ -286,11 +277,14 @@ def publish( seps, pubsub, topic, data ):
             
             # unsubscribeOneOffs
             if ('list' in subscribers) and len(subscribers['list']) > 0:
-                subs = subscribers['list']
-                for s in range(len(subs)-1,-1,-1):
-                    subscriber = subs[ s ]
-                    if subscriber[1] and subscriber[4] > 0:
-                        del subs[s:s+1]
+                if subscribers['oneOffs'] > 0:
+                    subs = subscribers['list']
+                    for s in range(len(subs)-1,-1,-1):
+                        subscriber = subs[ s ]
+                        if subscriber[1] and subscriber[4] > 0:
+                            del subs[s:s+1]
+                            subscribers['oneOffs'] = subscribers['oneOffs']-1 if subscribers['oneOffs'] > 0 else 0
+                else: subscribers['oneOffs'] = 0
                     
             # stop event bubble propagation
             if evt.propagationStopped(): break
@@ -315,66 +309,34 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
             for ns in namespaces: nshash[ns] = 1
         namespaces_ref = namespaces[:]
         
+        queue = None
         if len(topic):
             if not topic in pubsub['topics']: 
-                pubsub['topics'][ topic ] = { 'notags': {'namespaces': {}, 'list': []}, 'tags': {} }
+                pubsub['topics'][ topic ] = { 'notags': {'namespaces': {}, 'list': [], 'oneOffs': 0}, 'tags': {} }
             if tagslen:
                 if not tags in pubsub['topics'][ topic ]['tags']: 
-                    pubsub['topics'][ topic ]['tags'][ tags ] = {'namespaces': {}, 'list': []}
-                if nslen:
-                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
-                    if on1:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, entry )
-                    else:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( entry )
-                    updateNamespaces( pubsub['topics'][ topic ]['tags'][ tags ]['namespaces'], namespaces, nslen )
-                else:
-                    entry = [subscriber, oneOff, False, [], 0]
-                    if on1:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].insert( 0, entry )
-                    else:
-                        pubsub['topics'][ topic ]['tags'][ tags ]['list'].append( entry )
+                    pubsub['topics'][ topic ]['tags'][ tags ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
+                
+                queue = pubsub['topics'][ topic ]['tags'][ tags ]
             else:
-                if nslen:
-                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
-                    if on1:
-                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, entry )
-                    else:
-                        pubsub['topics'][ topic ]['notags']['list'].append( entry )
-                    updateNamespaces( pubsub['topics'][ topic ]['notags']['namespaces'], namespaces, nslen )
-                else:
-                    entry = [subscriber, oneOff, False, [], 0]
-                    if on1:
-                        pubsub['topics'][ topic ]['notags']['list'].insert( 0, entry )
-                    else:
-                        pubsub['topics'][ topic ]['notags']['list'].append( entry )
+                queue = pubsub['topics'][ topic ]['notags']
         
         else:
             if tagslen:
                 if not tags in pubsub['notopics']['tags']: 
-                    pubsub['notopics']['tags'][ tags ] = {'namespaces': {}, 'list': []}
-                if nslen:
-                    entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
-                    if on1:
-                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, entry )
-                    else:
-                        pubsub['notopics']['tags'][ tags ]['list'].append( entry )
-                    updateNamespaces( pubsub['notopics']['tags'][ tags ]['namespaces'], namespaces, nslen )
-                else:
-                    entry = [subscriber, oneOff, False, [], 0]
-                    if on1:
-                        pubsub['notopics']['tags'][ tags ]['list'].insert( 0, entry )
-                    else:
-                        pubsub['notopics']['tags'][ tags ]['list'].append( entry )
+                    pubsub['notopics']['tags'][ tags ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
+                
+                queue = pubsub['notopics']['tags'][ tags ]
                     
             elif nslen:
-                entry = [subscriber, oneOff, nshash, namespaces_ref, 0]
-                if on1:
-                    pubsub['notopics']['notags']['list'].insert( 0, entry )
-                else:
-                    pubsub['notopics']['notags']['list'].append( entry )
-                updateNamespaces( pubsub['notopics']['notags']['namespaces'], namespaces, nslen )
+                queue = pubsub['notopics']['notags']
 
+        if queue is not None:
+            entry = [subscriber, oneOff, nshash, namespaces_ref, 0] if nslen else [subscriber, oneOff, False, [], 0]
+            if on1: queue['list'].insert( 0, entry )
+            else: queue['list'].append( entry )
+            if oneOff: queue['oneOffs'] += 1
+            if nslen: updateNamespaces( queue['namespaces'], namespaces, nslen )
 
 
 def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
@@ -387,9 +349,13 @@ def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
                 if subscriber == pb.list[pos][0]:
                     if nslen and pb.list[pos][2] and matchNamespace( pb['list'][pos][2], namespaces, nslen ):
                         removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+                        if pb['list'][pos][1]: 
+                            pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                         del pb['list'][pos:pos+1]
                     elif not nslen:
                         if pb['list'][pos][2]: removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+                        if pb['list'][pos][1]: 
+                            pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                         del pb['list'][pos:pos+1]
                 pos -= 1
     
@@ -398,11 +364,14 @@ def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
         while pos >= 0:
             if pb['list'][pos][2] and matchNamespace( pb['list'][pos][2], namespaces, nslen ):
                 removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+                if pb['list'][pos][1]: 
+                    pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                 del pb['list'][pos:pos+1]
             pos -= 1
             
     elif not hasSubscriber and (pos > 0):
         pb['list'] = [ ]
+        pb['oneOffs'] = 0
         pb['namespaces'] = { }
 
 
@@ -472,7 +441,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.3"
+    VERSION = "0.3.4"
     
     Event = PublishSubscribeEvent
     
@@ -500,7 +469,7 @@ class PublishSubscribe:
     def trigger( self, message, data=None ):
         if not data: data = { }
         #print( pprint.pformat(self._pubsub, 4) )
-        publish( self._seps, self._pubsub, message, data )
+        publish( self, self._seps, self._pubsub, message, data )
         #print( pprint.pformat(self._pubsub, 4) )
         return self
     
