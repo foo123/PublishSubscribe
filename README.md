@@ -1,7 +1,7 @@
 PublishSubscribe
 ================
 
-A simple and flexible publish-subscribe pattern implementation for PHP, Python, Node/JS
+A simple and flexible publish-subscribe pattern implementation for PHP, Python, Node/JS, ActionScript(TODO)
 
 Supports *nested* topics, *tagged* topics and *namespaced* topics.
 
