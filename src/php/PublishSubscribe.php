@@ -42,7 +42,7 @@ class PublishSubscribeEvent
         if ( $namespaces )  $this->namespaces = (array)$namespaces;
         else  $this->namespaces = array();
         $this->data = array();
-        $this->timestamp = time();
+        $this->timestamp = round(microtime(true) * 1000);
         $this->_stopPropagation = false;
         $this->_stopEvent = false;
     }

@@ -31,7 +31,7 @@ class PublishSubscribeEvent:
         if namespaces: self.namespaces = namespaces
         else: self.namespaces = []
         self.data = {}
-        self.timestamp = int(time.time())
+        self.timestamp = int(round(time.time() * 1000))
         self._stopPropagation = False
         self._stopEvent = False
     
