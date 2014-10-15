@@ -4,7 +4,7 @@ console.log('PublishSubscribe.VERSION = ' + PublishSubscribe.VERSION);
 
 function _log(evt, data)
 {
-    console.log({topic: evt.topic, originalTopic: evt.originalTopic, tags: evt.tags, namespaces: evt.namespaces});
+    console.log({topic: evt.topic, originalTopic: evt.originalTopic, tags: evt.tags, namespaces: evt.namespaces, timestamp: evt.timestamp});
     console.log(data);
 }
 

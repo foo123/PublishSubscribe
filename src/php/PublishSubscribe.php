@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.4
+*  @version: 0.3.5
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -26,6 +26,7 @@ class PublishSubscribeEvent
     public $tags = null;
     public $namespaces = null;
     public $data = null;
+    public $timestamp = 0;
     private $_stopPropagation = false;
     private $_stopEvent = false;
     
@@ -41,6 +42,7 @@ class PublishSubscribeEvent
         if ( $namespaces )  $this->namespaces = (array)$namespaces;
         else  $this->namespaces = array();
         $this->data = array();
+        $this->timestamp = time();
         $this->_stopPropagation = false;
         $this->_stopEvent = false;
     }
@@ -53,6 +55,7 @@ class PublishSubscribeEvent
         $this->tags = null;
         $this->namespaces = null;
         $this->data = null;
+        $this->timestamp = null;
         $this->_stopPropagation = true;
         $this->_stopEvent = true;
         return $this;
@@ -84,7 +87,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "0.3.4";
+    const VERSION = "0.3.5";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';

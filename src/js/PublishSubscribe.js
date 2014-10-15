@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.4
+*  @version: 0.3.5
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -33,10 +33,12 @@
     
     "use strict";
     
-    var __version__ = "0.3.4", 
+    var __version__ = "0.3.5", 
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
-        KEYS = Object.keys;
+        KEYS = Object.keys, 
+        NOW = Date.now ? Date.now : function( ){ return new Date().getTime(); }
+    ;
     
     function PublishSubscribeEvent(target, topic, original, tags, namespaces)
     {
@@ -50,6 +52,7 @@
         if ( namespaces )  self.namespaces = [].concat( namespaces );
         else self.namespaces = [ ];
         self.data = { };
+        self.timestamp = NOW( );
         self._stopPropagation = false;
         self._stopEvent = false;
     }
@@ -61,6 +64,7 @@
         tags: null,
         namespaces: null,
         data: null,
+        timestamp: 0,
         _stopPropagation: false,
         _stopEvent: false,
         
@@ -72,6 +76,7 @@
             self.tags = null;
             self.namespaces = null;
             self.data = null;
+            self.timestamp = null;
             self._stopPropagation = true;
             self._stopEvent = true;
             return self;

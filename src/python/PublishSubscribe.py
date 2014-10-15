@@ -3,11 +3,12 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.4
+#  @version: 0.3.5
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
-    
+
+import time    
 #import pprint
 
 TOPIC_SEP = '/' 
@@ -30,6 +31,7 @@ class PublishSubscribeEvent:
         if namespaces: self.namespaces = namespaces
         else: self.namespaces = []
         self.data = {}
+        self.timestamp = int(time.time())
         self._stopPropagation = False
         self._stopEvent = False
     
@@ -40,6 +42,7 @@ class PublishSubscribeEvent:
         self.tags = None
         self.namespaces = None
         self.data = None
+        self.timestamp = None
         self._stopPropagation = True
         self._stopEvent = True
         return self
@@ -441,7 +444,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.4"
+    VERSION = "0.3.5"
     
     Event = PublishSubscribeEvent
     

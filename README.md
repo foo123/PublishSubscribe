@@ -11,10 +11,10 @@ Supports *nested* topics, *tagged* topics and *namespaced* topics.
 
 **see also:**  
 
-* [Contemplate](https://github.com/foo123/Contemplate) a light-weight template engine for Node/JS, PHP and Python
+* [Contemplate](https://github.com/foo123/Contemplate) a light-weight template engine for Node/JS, PHP, Python, ActionScript
 * [ModelView](https://github.com/foo123/modelview.js) a light-weight and flexible MVVM framework for JavaScript/HTML5
 * [ModelView MVC jQueryUI Widgets](https://github.com/foo123/modelview-widgets) plug-n-play, state-full, full-MVC widgets for jQueryUI using modelview.js (e.g calendars, datepickers, colorpickers, tables/grids, etc..) (in progress)
-* [Dromeo](https://github.com/foo123/Dromeo) a flexible, agnostic router for Node/JS, PHP, Python, ActionScript(TODO)
+* [Dromeo](https://github.com/foo123/Dromeo) a flexible, agnostic router for Node/JS, PHP, Python, ActionScript
 * [Asynchronous](https://github.com/foo123/asynchronous.js) a simple manager for async, linearised, parallelised, interleaved and sequential tasks for JavaScript
 
 
@@ -89,7 +89,7 @@ console.log('PublishSubscribe.VERSION = ' + PublishSubscribe.VERSION);
 
 function _log(evt, data)
 {
-    console.log({topic: evt.topic, originalTopic: evt.originalTopic, tags: evt.tags, namespaces: evt.namespaces});
+    console.log({topic: evt.topic, originalTopic: evt.originalTopic, tags: evt.tags, namespaces: evt.namespaces, timestamp: evt.timestamp});
     console.log(data);
 }
 
@@ -131,24 +131,27 @@ var pb = new PublishSubscribe( )
 **output**
 ```text
 
-PublishSubscribe.VERSION = 0.3.4
+PublishSubscribe.VERSION = 0.3.5
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
-  namespaces: [] }
+  namespaces: [],
+  timestamp: 1413370469838 }
 { key1: 'value1' }
 Handler1
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
-  namespaces: [] }
+  namespaces: [],
+  timestamp: 1413370469838 }
 { key1: 'value1' }
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
-  namespaces: [ 'NS1' ] }
+  namespaces: [ 'NS1' ],
+  timestamp: 1413370469840 }
 { key1: 'value1' }
 
 ```
