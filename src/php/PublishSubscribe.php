@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.5
+*  @version: 0.3.6
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -87,7 +87,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "0.3.5";
+    const VERSION = "0.3.6";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';
@@ -195,6 +195,7 @@ class PublishSubscribe implements PublishSubscribeInterface
     {
         foreach ($namespaces as $ns)
         {
+            $ns = 'ns_' . $ns;
             if ( !isset($pbns[$ns]) )
             {
                 $pbns[ $ns ] = 1;
@@ -210,6 +211,7 @@ class PublishSubscribe implements PublishSubscribeInterface
     {
         foreach ($namespaces as $ns)
         {
+            $ns = 'ns_' . $ns;
             if ( isset($pbns[$ns]) )
             {
                 $pbns[ $ns ]--;
@@ -223,6 +225,7 @@ class PublishSubscribe implements PublishSubscribeInterface
     {
         foreach ($namespaces as $ns)
         {
+            $ns = 'ns_' . $ns;
             if ( !isset($pbns[ $ns ]) || (0 >= $pbns[ $ns ]) ) return false;
         }
         return true;
@@ -230,88 +233,50 @@ class PublishSubscribe implements PublishSubscribeInterface
     
     private static function checkIsSubscribed( &$pubsub, &$subscribedTopics, $topic, $tag, &$namespaces, $nl )
     {
-        if ( $topic )
+        $_topic = $topic ? ('tp_'.$topic) : false;
+        $_tag = $tag ? ('tg_'.$tag) : false;
+        
+        if ( $_topic && isset($pubsub['topics'][ $_topic ]) )
         {
-            if ( $tag )
+            if ( $_tag && isset($pubsub['topics'][ $_topic ]['tags'][ $_tag ]) )
             {
-                if ( $nl > 0 )
+                if ( !empty($pubsub['topics'][ $_topic ]['tags'][ $_tag ]['list']) &&
+                    ($nl <= 0 || self::matchNamespace( $pubsub['topics'][ $_topic ]['tags'][ $_tag ]['namespaces'], $namespaces, $nl )) )
                 {
-                    if ( isset($pubsub['topics'][ $topic ]['tags'][ $tag ]) && 
-                        !empty($pubsub['topics'][ $topic ]['tags'][ $tag ]['list']) &&
-                        self::matchNamespace( $pubsub['topics'][ $topic ]['tags'][ $tag ]['namespaces'], $namespaces, $nl ) )
-                    {
-                        array_push($subscribedTopics, array($topic, $tag, true, &$pubsub['topics'][ $topic ]['tags'][ $tag ]));
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( isset($pubsub['topics'][ $topic ]['tags'][$tag]) && !empty($pubsub['topics'][ $topic ]['tags'][$tag]['list']) )
-                    {
-                        array_push($subscribedTopics, array($topic, $tag, null, &$pubsub['topics'][ $topic ]['tags'][$tag]));
-                        return true;
-                    }
+                    array_push($subscribedTopics, array($topic, $tag, $nl > 0, &$pubsub['topics'][ $_topic ]['tags'][ $_tag ]));
+                    return true;
                 }
             }
             else
             {
-                if ( $nl > 0 )
+                if ( !empty($pubsub['topics'][ $_topic ]['notags']['list']) &&
+                    ($nl <= 0 || self::matchNamespace( $pubsub['topics'][ $_topic ]['notags']['namespaces'], $namespaces, $nl )) )
                 {
-                    if ( !empty($pubsub['topics'][ $topic ]['notags']['list']) &&
-                        self::matchNamespace( $pubsub['topics'][ $topic ]['notags']['namespaces'], $namespaces, $nl ) )
-                    {
-                        array_push($subscribedTopics, array($topic, null, true, &$pubsub['topics'][ $topic ]['notags']));
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( !empty($pubsub['topics'][ $topic ]['notags']['list']) )
-                    {
-                        array_push($subscribedTopics, array($topic, null, null, &$pubsub['topics'][ $topic ]['notags']));
-                        return true;
-                    }
+                    array_push($subscribedTopics, array($topic, null, $nl > 0, &$pubsub['topics'][ $_topic ]['notags']));
+                    return true;
                 }
             }
         }
         else
         {
-            if ( $tag )
+            if ( $_tag && isset($pubsub['notopics']['tags'][$_tag]) )
             {
-                if ( $nl > 0 )
+                if ( !empty($pubsub['notopics']['tags'][$_tag]['list']) &&
+                    ($nl <= 0 || self::matchNamespace( $pubsub['notopics']['tags'][$_tag]['namespaces'], $namespaces, $nl )) )
                 {
-                    if ( isset($pubsub['notopics']['tags'][$tag]) && 
-                        !empty($pubsub['notopics']['tags'][$tag]['list']) &&
-                        self::matchNamespace( $pubsub['notopics']['tags'][$tag]['namespaces'], $namespaces, $nl ) )
-                    {
-                        array_push($subscribedTopics, array(null, $tag, true, &$pubsub['notopics']['tags'][$tag]));
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( isset($pubsub['notopics']['tags'][$tag]) && !empty($pubsub['notopics']['tags'][$tag]['list']) )
-                    {
-                        array_push($subscribedTopics, array(null, $tag, null, &$pubsub['notopics']['tags'][$tag]));
-                        return true;
-                    }
+                    array_push($subscribedTopics, array(null, $tag, $nl > 0, &$pubsub['notopics']['tags'][$_tag]));
+                    return true;
                 }
             }
             else
             {
-                if ( $nl > 0 )
+                if ( !empty($pubsub['notopics']['notags']['list']) &&
+                    ($nl > 0 && self::matchNamespace( $pubsub['notopics']['notags']['namespaces'], $namespaces, $nl )) )
                 {
-                    if ( !empty($pubsub['notopics']['notags']['list']) &&
-                        self::matchNamespace( $pubsub['notopics']['notags']['namespaces'], $namespaces, $nl ) )
-                    {
-                        array_push($subscribedTopics, array(null, null, true, &$pubsub['notopics']['notags']));
-                        return true;
-                    }
+                    array_push($subscribedTopics, array(null, null, true, &$pubsub['notopics']['notags']));
+                    return true;
                 }
-                else
-                {
-                    /* no topics no tags no namespaces, do nothing */
-                }
+                /* else no topics no tags no namespaces, do nothing */
             }
         }
         return false;
@@ -334,7 +299,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             while ( $l )
             {
                 $topic = $topics[ 0 ];
-                if ( isset($pubsub['topics'][ $topic ]) ) 
+                if ( isset($pubsub['topics'][ 'tp_'.$topic ]) ) 
                 {
                     if ( $tl > 0 )
                     {
@@ -465,7 +430,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             {
                 for ($n=0; $n<$nslen; $n++)
                 {
-                    $nshash[$namespaces[$n]] = 1;
+                    $nshash['ns_'.$namespaces[$n]] = 1;
                 }
             }
             $namespaces_ref = array_merge(array(), $namespaces);
@@ -473,29 +438,32 @@ class PublishSubscribe implements PublishSubscribeInterface
             $queue = null;
             if ( strlen($topic) )
             {
-                if ( !isset($pubsub['topics'][ $topic ]) ) 
-                    $pubsub['topics'][ $topic ] = array( 'notags'=> array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0), 'tags'=> array() );
+                $_topic = 'tp_'.$topic;
+                if ( !isset($pubsub['topics'][ $_topic ]) ) 
+                    $pubsub['topics'][ $_topic ] = array( 'notags'=> array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0), 'tags'=> array() );
                 
                 if ( $tagslen )
                 {
-                    if ( !isset($pubsub['topics'][ $topic ]['tags'][$tags]) ) 
-                        $pubsub['topics'][ $topic ]['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
+                    $_tag = 'tg_'.$tags;
+                    if ( !isset($pubsub['topics'][ $_topic ]['tags'][$_tag]) ) 
+                        $pubsub['topics'][ $_topic ]['tags'][ $_tag ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
                     
-                    $queue =& $pubsub['topics'][ $topic ]['tags'][ $tags ];
+                    $queue =& $pubsub['topics'][ $_topic ]['tags'][ $_tag ];
                 }
                 else
                 {
-                    $queue =& $pubsub['topics'][ $topic ]['notags'];
+                    $queue =& $pubsub['topics'][ $_topic ]['notags'];
                 }
             }
             else
             {
                 if ( $tagslen )
                 {
-                    if ( !isset($pubsub['notopics']['tags'][$tags]) ) 
-                        $pubsub['notopics']['tags'][ $tags ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
+                    $_tag = 'tg_'.$tags;
+                    if ( !isset($pubsub['notopics']['tags'][$_tag]) ) 
+                        $pubsub['notopics']['tags'][ $_tag ] = array('namespaces'=> array(), 'list'=> array(), 'oneOffs'=> 0);
                     
-                    $queue =& $pubsub['notopics']['tags'][ $tags ];
+                    $queue =& $pubsub['notopics']['tags'][ $_tag ];
                 }
                 elseif ( $nslen )
                 {
@@ -582,41 +550,42 @@ class PublishSubscribe implements PublishSubscribeInterface
 
             $topic = implode(self::OTOPIC_SEP, $topic[0]);
             $topiclen = strlen($topic);
+            $_topic = $topiclen ? ('tp_' . $topic) : false; $_tag = $tagslen ? ('tg_' . $tags) : false;
             
-            if ( $topiclen && isset($pubsub['topics'][$topic]) )
+            if ( $topiclen && isset($pubsub['topics'][$_topic]) )
             {
-                if ( $tagslen && isset($pubsub['topics'][ $topic ]['tags'][$tags]) ) 
+                if ( $tagslen && isset($pubsub['topics'][ $_topic ]['tags'][$_tag]) ) 
                 {
-                    self::removeSubscriber( $pubsub['topics'][ $topic ]['tags'][ $tags ], $hasSubscriber, $subscriber, $namespaces, $nslen );
-                    if ( empty($pubsub['topics'][ $topic ]['tags'][ $tags ]['list']) )
-                        unset($pubsub['topics'][ $topic ]['tags'][ $tags ]);
+                    self::removeSubscriber( $pubsub['topics'][ $_topic ]['tags'][ $_tag ], $hasSubscriber, $subscriber, $namespaces, $nslen );
+                    if ( empty($pubsub['topics'][ $_topic ]['tags'][ $_tag ]['list']) )
+                        unset($pubsub['topics'][ $_topic ]['tags'][ $_tag ]);
                 }
                 elseif ( !$tagslen )
                 {
-                    self::removeSubscriber( $pubsub['topics'][ $topic ]['notags'], $hasSubscriber, $subscriber, $namespaces, $nslen );
+                    self::removeSubscriber( $pubsub['topics'][ $_topic ]['notags'], $hasSubscriber, $subscriber, $namespaces, $nslen );
                 }
-                if ( empty($pubsub['topics'][ $topic ]['notags']['list']) && empty($pubsub['topics'][ $topic ]['tags']) )
-                    unset($pubsub['topics'][ $topic ]);
+                if ( empty($pubsub['topics'][ $_topic ]['notags']['list']) && empty($pubsub['topics'][ $_topic ]['tags']) )
+                    unset($pubsub['topics'][ $_topic ]);
             }
             elseif ( !$topiclen && ($tagslen || $nslen) )
             {
                 if ( $tagslen )
                 {
-                    if ( isset($pubsub['notopics']['tags'][$tags]) )
+                    if ( isset($pubsub['notopics']['tags'][$_tag]) )
                     {
-                        self::removeSubscriber( $pubsub['notopics']['tags'][ $tags ], $hasSubscriber, $subscriber, $namespaces, $nslen );
-                        if ( empty($pubsub['notopics']['tags'][ $tags ]['list']) )
-                            unset($pubsub['notopics']['tags'][ $tags ]);
+                        self::removeSubscriber( $pubsub['notopics']['tags'][ $_tag ], $hasSubscriber, $subscriber, $namespaces, $nslen );
+                        if ( empty($pubsub['notopics']['tags'][ $_tag ]['list']) )
+                            unset($pubsub['notopics']['tags'][ $_tag ]);
                     }
                     
                     // remove from any topics as well
                     foreach ( array_keys($pubsub['topics']) as $t )
                     {
-                        if ( isset($pubsub['topics'][ $t ]['tags'][$tags]) )
+                        if ( isset($pubsub['topics'][ $t ]['tags'][$_tag]) )
                         {
-                            self::removeSubscriber( $pubsub['topics'][ $t ]['tags'][ $tags ], $hasSubscriber, $subscriber, $namespaces, $nslen );
-                            if ( empty($pubsub['topics'][ $t ]['tags'][ $tags ]['list']) )
-                                unset($pubsub['topics'][ $t ]['tags'][ $tags ]);
+                            self::removeSubscriber( $pubsub['topics'][ $t ]['tags'][ $_tag ], $hasSubscriber, $subscriber, $namespaces, $nslen );
+                            if ( empty($pubsub['topics'][ $t ]['tags'][ $_tag ]['list']) )
+                                unset($pubsub['topics'][ $t ]['tags'][ $_tag ]);
                         }
                     }
                 }

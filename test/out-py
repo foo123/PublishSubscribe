@@ -1,12 +1,12 @@
 PublishSubscribe Module loaded succesfully
-PublishSubscribe.VERSION = 0.3.5
+PublishSubscribe.VERSION = 0.3.6
 
 Handler2
 
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1413371274818,
+    'timestamp': 1419089998588,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}
 Handler1
@@ -14,7 +14,7 @@ Handler1
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1413371274818,
+    'timestamp': 1419089998588,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}
 Handler2
@@ -22,6 +22,6 @@ Handler2
 {   'namespaces': ['NS1'],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1413371274818,
+    'timestamp': 1419089998590,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}

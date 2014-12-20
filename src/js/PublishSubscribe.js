@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.5
+*  @version: 0.3.6
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -33,10 +33,10 @@
     
     "use strict";
     
-    var __version__ = "0.3.5", 
+    var __version__ = "0.3.6", 
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
-        KEYS = Object.keys, 
+        KEYS = Object.keys, HAS = 'hasOwnProperty',
         NOW = Date.now ? Date.now : function( ){ return new Date().getTime(); }
     ;
     
@@ -211,8 +211,8 @@
         var n, ns;
         for (n=0; n<nl; n++)
         {
-            ns = namespaces[n];
-            if ( !(ns in pbns) )
+            ns = 'ns_' + namespaces[n];
+            if ( !pbns[HAS](ns) )
             {
                 pbns[ ns ] = 1;
             }
@@ -228,12 +228,11 @@
         var n, ns;
         for (n=0; n<nl; n++)
         {
-            ns = namespaces[n];
-            if ( ns in pbns )
+            ns = 'ns_' + namespaces[n];
+            if ( pbns[HAS](ns) )
             {
                 pbns[ ns ]--;
-                if ( pbns[ ns ] <=0 )
-                    delete pbns[ ns ];
+                if ( pbns[ ns ] <=0 ) delete pbns[ ns ];
             }
         }
     }
@@ -243,96 +242,58 @@
         var n, ns;
         for (n=0; n<nl; n++)
         {
-            ns = namespaces[n];
-            if ( !(ns in pbns) || (0 >= pbns[ ns ]) ) return false;
+            ns = 'ns_' + namespaces[n];
+            if ( !pbns[HAS](ns) || (0 >= pbns[ ns ]) ) return false;
         }
         return true;
     }
     
     function checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
     {
-        if ( topic )
+        var _topic = !!topic ? 'tp_' + topic : false, 
+            _tag = !!tag ? 'tg_' + tag : false;
+            
+        if ( _topic && pubsub.topics[HAS](_topic) )
         {
-            if ( tag )
+            if ( _tag && pubsub.topics[ _topic ].tags[HAS](_tag) )
             {
-                if ( nl > 0 )
+                if ( pubsub.topics[ _topic ].tags[ _tag ].list.length &&
+                    (nl <= 0 || matchNamespace( pubsub.topics[ _topic ].tags[ _tag ].namespaces, namespaces, nl )) )
                 {
-                    if ( (tag in pubsub.topics[ topic ].tags) && 
-                        pubsub.topics[ topic ].tags[ tag ].list.length &&
-                        matchNamespace( pubsub.topics[ topic ].tags[ tag ].namespaces, namespaces, nl ) )
-                    {
-                        subscribedTopics.push( [topic, tag, true, pubsub.topics[ topic ].tags[ tag ]] );
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( (tag in pubsub.topics[ topic ].tags) && pubsub.topics[ topic ].tags[ tag ].list.length )
-                    {
-                        subscribedTopics.push( [topic, tag, null, pubsub.topics[ topic ].tags[ tag ]] );
-                        return true;
-                    }
+                    subscribedTopics.push( [topic, tag, nl > 0, pubsub.topics[ _topic ].tags[ _tag ]] );
+                    return true;
                 }
             }
             else
             {
-                if ( nl > 0 )
+                if ( pubsub.topics[ _topic ].notags.list.length && 
+                    (nl <= 0 || matchNamespace( pubsub.topics[ _topic ].notags.namespaces, namespaces, nl )) )
                 {
-                    if ( pubsub.topics[ topic ].notags.list.length && 
-                        matchNamespace( pubsub.topics[ topic ].notags.namespaces, namespaces, nl ) )
-                    {
-                        subscribedTopics.push( [topic, null, true, pubsub.topics[ topic ].notags] );
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( pubsub.topics[ topic ].notags.list.length )
-                    {
-                        subscribedTopics.push( [topic, null, null, pubsub.topics[ topic ].notags] );
-                        return true;
-                    }
+                    subscribedTopics.push( [topic, null, nl > 0, pubsub.topics[ _topic ].notags] );
+                    return true;
                 }
             }
         }
         else
         {
-            if ( tag )
+            if ( _tag && pubsub.notopics.tags[HAS](_tag) )
             {
-                if ( nl > 0 )
+                if ( pubsub.notopics.tags[ _tag ].list.length &&
+                    (nl <= 0 || matchNamespace( pubsub.notopics.tags[ _tag ].namespaces, namespaces, nl )) )
                 {
-                    if ( (tag in pubsub.notopics.tags) && 
-                        pubsub.notopics.tags[ tag ].list.length &&
-                        matchNamespace( pubsub.notopics.tags[ tag ].namespaces, namespaces, nl ) )
-                    {
-                        subscribedTopics.push( [null, tag, true, pubsub.notopics.tags[ tag ]] );
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ( (tag in pubsub.notopics.tags) && pubsub.notopics.tags[ tag ].list.length )
-                    {
-                        subscribedTopics.push( [null, tag, null, pubsub.notopics.tags[ tag ]] );
-                        return true;
-                    }
+                    subscribedTopics.push( [null, tag, nl > 0, pubsub.notopics.tags[ _tag ]] );
+                    return true;
                 }
             }
             else
             {
-                if ( nl > 0 )
+                if ( pubsub.notopics.notags.list.length &&
+                    (nl <= 0 || matchNamespace( pubsub.notopics.notags.namespaces, namespaces, nl )) )
                 {
-                    if ( pubsub.notopics.notags.list.length &&
-                        matchNamespace( pubsub.notopics.notags.namespaces, namespaces, nl ) )
-                    {
-                        subscribedTopics.push( [null, null, true, pubsub.notopics.notags] );
-                        return true;
-                    }
+                    subscribedTopics.push( [null, null, true, pubsub.notopics.notags] );
+                    return true;
                 }
-                else
-                {
-                    /* no topics no tags no namespaces, do nothing */
-                }
+                /* else no topics no tags no namespaces, do nothing */
             }
         }
         return false;
@@ -341,6 +302,7 @@
     function getSubscribedTopics( seps, pubsub, atopic )
     {
         var all = getAllTopics( seps, atopic ), l, topic, tag, ns,
+            //_topic, _tag,
             t, n, tl, nl, 
             topics = all[ 1 ], tags = all[ 2 ], namespaces = all[ 3 ], 
             topTopic = all[ 0 ], subscribedTopics = [ ]
@@ -353,14 +315,14 @@
         {
             while ( l )
             {
-                topic = topics[ 0 ];
-                if ( pubsub.topics[ topic ] ) 
+                topic = topics[ 0 ]; //_topic = 'tp_' + topic;
+                if ( pubsub.topics[HAS]( 'tp_' + topic ) ) 
                 {
                     if ( tl > 0 )
                     {
                         for (t=0; t<tl; t++)
                         {
-                            tag = tags[ t ];
+                            tag = tags[ t ]; //_tag = 'tg_' + tag;
                             checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl );
                         }
                     }
@@ -485,6 +447,7 @@
         {
             topic = parseTopic( seps, topic );
             var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length, entry, queue,
+                _topic, _tag,
                 namespaces = topic[2], nshash, namespaces_ref, n, nslen = namespaces.length;
             topic = topic[0].join( OTOPIC_SEP );
             oneOff = (true === oneOff);
@@ -495,7 +458,7 @@
             {
                 for (n=0; n<nslen; n++)
                 {
-                    nshash[namespaces[n]] = 1;
+                    nshash['ns_'+namespaces[n]] = 1;
                 }
             }
             namespaces_ref = namespaces.slice( 0 );
@@ -503,29 +466,32 @@
             queue = null;
             if ( topic.length )
             {
-                if ( !(topic in pubsub.topics) ) 
-                    pubsub.topics[ topic ] = { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} };
+                _topic = 'tp_' + topic;
+                if ( !pubsub.topics[HAS](_topic) ) 
+                    pubsub.topics[ _topic ] = { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} };
                 
                 if ( tagslen )
                 {
-                    if ( !(tags in pubsub.topics[ topic ].tags) ) 
-                        pubsub.topics[ topic ].tags[ tags ] = {namespaces: {}, list: [], oneOffs: 0};
+                    _tag = 'tg_' + tags;
+                    if ( !pubsub.topics[ _topic ].tags[HAS](_tag) ) 
+                        pubsub.topics[ _topic ].tags[ _tag ] = {namespaces: {}, list: [], oneOffs: 0};
                     
-                    queue = pubsub.topics[ topic ].tags[ tags ];
+                    queue = pubsub.topics[ _topic ].tags[ _tag ];
                 }
                 else
                 {
-                    queue = pubsub.topics[ topic ].notags;
+                    queue = pubsub.topics[ _topic ].notags;
                 }
             }
             else
             {
                 if ( tagslen )
                 {
-                    if ( !(tags in pubsub.notopics.tags) ) 
-                        pubsub.notopics.tags[ tags ] = {namespaces: {}, list: [], oneOffs: 0};
+                    _tag = 'tg_' + tags;
+                    if ( !pubsub.notopics.tags[HAS](_tag) ) 
+                        pubsub.notopics.tags[ _tag ] = {namespaces: {}, list: [], oneOffs: 0};
                     
-                    queue = pubsub.notopics.tags[ tags ];
+                    queue = pubsub.notopics.tags[ _tag ];
                 }
                 else if ( nslen )
                 {
@@ -605,48 +571,50 @@
         {
             topic = parseTopic( seps, topic );
             var t, t2, tags = topic[1].join( OTAG_SEP ), namespaces = topic[2],
+                _topic, _tag,
                 tagslen = tags.length, nslen = namespaces.length, topiclen,
                 hasSubscriber
             ;
             topic = topic[0].join( OTOPIC_SEP );
             topiclen = topic.length;
+            _topic = topiclen ? 'tp_' + topic : false; _tag = tagslen ? 'tg_' + tags : false;
             hasSubscriber = !!(subscriber && ("function" === typeof( subscriber )));
             if ( !hasSubscriber ) subscriber = null;
             
-            if ( topiclen && (topic in pubsub.topics) )
+            if ( topiclen && pubsub.topics[HAS](_topic) )
             {
-                if ( tagslen && (tags in pubsub.topics[ topic ].tags) ) 
+                if ( tagslen && pubsub.topics[ _topic ].tags[HAS](_tag) ) 
                 {
-                    removeSubscriber( pubsub.topics[ topic ].tags[ tags ], hasSubscriber, subscriber, namespaces, nslen );
-                    if ( !pubsub.topics[ topic ].tags[ tags ].list.length )
-                        delete pubsub.topics[ topic ].tags[ tags ];
+                    removeSubscriber( pubsub.topics[ _topic ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                    if ( !pubsub.topics[ _topic ].tags[ _tag ].list.length )
+                        delete pubsub.topics[ _topic ].tags[ _tag ];
                 }
                 else if ( !tagslen )
                 {
-                    removeSubscriber( pubsub.topics[ topic ].notags, hasSubscriber, subscriber, namespaces, nslen );
+                    removeSubscriber( pubsub.topics[ _topic ].notags, hasSubscriber, subscriber, namespaces, nslen );
                 }
-                if ( !pubsub.topics[ topic ].notags.list.length && !KEYS(pubsub.topics[ topic ].tags).length )
-                    delete pubsub.topics[ topic ];
+                if ( !pubsub.topics[ _topic ].notags.list.length && !KEYS(pubsub.topics[ _topic ].tags).length )
+                    delete pubsub.topics[ _topic ];
             }
             else if ( !topiclen && (tagslen || nslen) )
             {
                 if ( tagslen )
                 {
-                    if ( tags in pubsub.notopics.tags )
+                    if ( pubsub.notopics.tags[HAS](_tag) )
                     {
-                        removeSubscriber( pubsub.notopics.tags[ tags ], hasSubscriber, subscriber, namespaces, nslen );
-                        if ( !pubsub.notopics.tags[ tags ].list.length )
-                            delete pubsub.notopics.tags[ tags ];
+                        removeSubscriber( pubsub.notopics.tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                        if ( !pubsub.notopics.tags[ _tag ].list.length )
+                            delete pubsub.notopics.tags[ _tag ];
                     }
                     
                     // remove from any topics as well
                     for ( t in pubsub.topics )
                     {
-                        if ( tags in pubsub.topics[ t ].tags )
+                        if ( pubsub.topics[HAS](t) && pubsub.topics[ t ].tags[HAS](_tag) )
                         {
-                            removeSubscriber( pubsub.topics[ t ].tags[ tags ], hasSubscriber, subscriber, namespaces, nslen );
-                            if ( !pubsub.topics[ t ].tags[ tags ].list.length )
-                                delete pubsub.topics[ t ].tags[ tags ];
+                            removeSubscriber( pubsub.topics[ t ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                            if ( !pubsub.topics[ t ].tags[ _tag ].list.length )
+                                delete pubsub.topics[ t ].tags[ _tag ];
                         }
                     }
                 }
@@ -657,21 +625,30 @@
                     // remove from any tags as well
                     for ( t2 in pubsub.notopics.tags )
                     {
-                        removeSubscriber( pubsub.notopics.tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
-                        if ( !pubsub.notopics.tags[ t2 ].list.length )
-                            delete pubsub.notopics.tags[ t2 ];
+                        if ( pubsub.notopics.tags[HAS](t2) )
+                        {
+                            removeSubscriber( pubsub.notopics.tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
+                            if ( !pubsub.notopics.tags[ t2 ].list.length )
+                                delete pubsub.notopics.tags[ t2 ];
+                        }
                     }
                     
                     // remove from any topics and tags as well
                     for ( t in pubsub.topics )
                     {
-                        removeSubscriber( pubsub.topics[ t ].notags, hasSubscriber, subscriber, namespaces, nslen );
-                        
-                        for ( t2 in pubsub.topics[ t ].tags )
+                        if ( pubsub.topics[HAS](t) )
                         {
-                            removeSubscriber( pubsub.topics[ t ].tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
-                            if ( !pubsub.topics[ t ].tags[ t2 ].list.length )
-                                delete pubsub.topics[ t ].tags[ t2 ];
+                            removeSubscriber( pubsub.topics[ t ].notags, hasSubscriber, subscriber, namespaces, nslen );
+                            
+                            for ( t2 in pubsub.topics[ t ].tags )
+                            {
+                                if ( pubsub.topics[ t ].tags[HAS](t2) )
+                                {
+                                    removeSubscriber( pubsub.topics[ t ].tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
+                                    if ( !pubsub.topics[ t ].tags[ t2 ].list.length )
+                                        delete pubsub.topics[ t ].tags[ t2 ];
+                                }
+                            }
                         }
                     }
                 }

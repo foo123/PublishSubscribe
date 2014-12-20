@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.5
+#  @version: 0.3.6
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -146,6 +146,7 @@ def getAllTopics( seps, topic ):
 
 def updateNamespaces( pbns, namespaces, nl=0 ):
     for ns in namespaces:
+        ns = 'ns_' + ns
         if not (ns in pbns):
             pbns[ ns ] = 1
         else:
@@ -154,6 +155,7 @@ def updateNamespaces( pbns, namespaces, nl=0 ):
 
 def removeNamespaces( pbns, namespaces, nl=0 ):
     for ns in namespaces:
+        ns = 'ns_' + ns
         if ns in pbns:
             pbns[ ns ] -= 1
             if pbns[ ns ] <=0:
@@ -162,50 +164,37 @@ def removeNamespaces( pbns, namespaces, nl=0 ):
 
 def matchNamespace( pbns, namespaces, nl=0 ):
     for ns in namespaces:
+        ns = 'ns_' + ns
         if (ns not in pbns) or (0 >= pbns[ ns ]): return False
     return True
 
 
 def checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl ):
-    if topic:
-        if tag:
-            if nl > 0:
-                if (tag in pubsub['topics'][ topic ]['tags']) and notEmpty(pubsub['topics'][ topic ]['tags'][ tag ]['list']) and matchNamespace( pubsub['topics'][ topic ]['tags'][ tag ]['namespaces'], namespaces, nl ):
-                    subscribedTopics.append( [topic, tag, True, pubsub['topics'][ topic ]['tags'][ tag ]] )
-                    return True
-            else:
-                if (tag in pubsub['topics'][ topic ]['tags']) and notEmpty(pubsub['topics'][ topic ]['tags'][ tag ]['list']):
-                    subscribedTopics.append( [topic, tag, None, pubsub['topics'][ topic ]['tags'][ tag ]] )
-                    return True
+    _topic = 'tp_' + topic if topic else False
+    _tag = 'tg_' + tag if tag else False
+    
+    if _topic and (_topic in pubsub['topics']):
+        if _tag and (_tag in pubsub['topics'][ _topic ]['tags']):
+            if notEmpty(pubsub['topics'][ _topic ]['tags'][ _tag ]['list']) and (nl <= 0 or matchNamespace( pubsub['topics'][ _topic ]['tags'][ _tag ]['namespaces'], namespaces, nl )):
+                subscribedTopics.append( [topic, tag, nl > 0, pubsub['topics'][ _topic ]['tags'][ _tag ]] )
+                return True
         
         else:
-            if nl > 0:
-                if notEmpty(pubsub['topics'][ topic ]['notags']['list']) and matchNamespace( pubsub['topics'][ topic ]['notags']['namespaces'], namespaces, nl ):
-                    subscribedTopics.append( [topic, None, True, pubsub['topics'][ topic ]['notags']] )
-                    return True
-            else:
-                if notEmpty(pubsub['topics'][ topic ]['notags']['list']):
-                    subscribedTopics.append( [topic, None, None, pubsub['topics'][ topic ]['notags']] )
-                    return True
+            if notEmpty(pubsub['topics'][ _topic ]['notags']['list']) and (nl <= 0 or matchNamespace( pubsub['topics'][ _topic ]['notags']['namespaces'], namespaces, nl )):
+                subscribedTopics.append( [topic, None, nl > 0, pubsub['topics'][ +topic ]['notags']] )
+                return True
     
     else:
-        if tag:
-            if nl > 0:
-                if (tag in pubsub['notopics']['tags']) and notEmpty(pubsub['notopics']['tags'][ tag ]['list']) and matchNamespace( pubsub['notopics']['tags'][ tag ]['namespaces'], namespaces, nl ):
-                    subscribedTopics.append( [None, tag, True, pubsub['notopics']['tags'][ tag ]] )
-                    return True
-            else:
-                if (tag in pubsub['notopics']['tags']) and notEmpty(pubsub['notopics']['tags'][ tag ]['list']):
-                    subscribedTopics.append( [None, tag, None, pubsub['notopics']['tags'][ tag ]] )
-                    return True
+        if _tag and (_tag in pubsub['notopics']['tags']):
+            if notEmpty(pubsub['notopics']['tags'][ _tag ]['list']) and (nl <= 0 or matchNamespace( pubsub['notopics']['tags'][ _tag ]['namespaces'], namespaces, nl )):
+                subscribedTopics.append( [None, tag, nl > 0, pubsub['notopics']['tags'][ _tag ]] )
+                return True
         
         else:
-            if nl > 0:
-                if notEmpty(pubsub['notopics']['notags']['list']) and matchNamespace( pubsub['notopics']['notags']['namespaces'], namespaces, nl ):
-                    subscribedTopics.append( [None, None, True, pubsub['notopics']['notags']] )
-                    return True
-            #else:
-                # no topics no tags no namespaces, do nothing
+            if notEmpty(pubsub['notopics']['notags']['list']) and (nl > 0 and matchNamespace( pubsub['notopics']['notags']['namespaces'], namespaces, nl )):
+                subscribedTopics.append( [None, None, True, pubsub['notopics']['notags']] )
+                return True
+            # else no topics no tags no namespaces, do nothing
     
     return False
 
@@ -224,7 +213,7 @@ def getSubscribedTopics( seps, pubsub, atopic ):
     if l:
         while l:
             topic = topics[ 0 ]
-            if topic in  pubsub['topics']:
+            if ('tp_'+topic) in  pubsub['topics']:
                 if tl > 0:
                     for tag in tags:
                         checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
@@ -309,27 +298,30 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
         on1 = (True == on1)
         nshash = { }
         if nslen:
-            for ns in namespaces: nshash[ns] = 1
+            for ns in namespaces: nshash['ns_'+ns] = 1
         namespaces_ref = namespaces[:]
         
         queue = None
         if len(topic):
-            if not topic in pubsub['topics']: 
-                pubsub['topics'][ topic ] = { 'notags': {'namespaces': {}, 'list': [], 'oneOffs': 0}, 'tags': {} }
+            _topic = 'tp_' + topic
+            if not _topic in pubsub['topics']: 
+                pubsub['topics'][ _topic ] = { 'notags': {'namespaces': {}, 'list': [], 'oneOffs': 0}, 'tags': {} }
             if tagslen:
-                if not tags in pubsub['topics'][ topic ]['tags']: 
-                    pubsub['topics'][ topic ]['tags'][ tags ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
+                _tag = 'tg_' + tags
+                if not _tag in pubsub['topics'][ _topic ]['tags']: 
+                    pubsub['topics'][ _topic ]['tags'][ _tag ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
                 
-                queue = pubsub['topics'][ topic ]['tags'][ tags ]
+                queue = pubsub['topics'][ _topic ]['tags'][ _tag ]
             else:
-                queue = pubsub['topics'][ topic ]['notags']
+                queue = pubsub['topics'][ _topic ]['notags']
         
         else:
             if tagslen:
-                if not tags in pubsub['notopics']['tags']: 
-                    pubsub['notopics']['tags'][ tags ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
+                _tag = 'tg_' + tags
+                if not _tag in pubsub['notopics']['tags']: 
+                    pubsub['notopics']['tags'][ _tag ] = {'namespaces': {}, 'list': [], 'oneOffs': 0}
                 
-                queue = pubsub['notopics']['tags'][ tags ]
+                queue = pubsub['notopics']['tags'][ _tag ]
                     
             elif nslen:
                 queue = pubsub['notopics']['notags']
@@ -391,30 +383,32 @@ def unsubscribe( seps, pubsub, topic, subscriber=None ):
         
         topic = OTOPIC_SEP.join( topic[0] )
         topiclen = len(topic)
+        _topic = 'tp_'+topic if topiclen else False
+        _tag = 'tg_'+tags if tagslen else False
         
-        if topiclen and (topic in pubsub['topics']):
-            if tagslen and (tags in pubsub['topics'][ topic ]['tags']):
-                removeSubscriber( pubsub['topics'][ topic ]['tags'][ tags ], hasSubscriber, subscriber, namespaces, nslen )
-                if not pubsub['topics'][ topic ]['tags'][ tags ]['list']:
-                    del pubsub['topics'][ topic ]['tags'][ tags ]
+        if topiclen and (_topic in pubsub['topics']):
+            if tagslen and (_tag in pubsub['topics'][ _topic ]['tags']):
+                removeSubscriber( pubsub['topics'][ _topic ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                if not pubsub['topics'][ _topic ]['tags'][ _tag ]['list']:
+                    del pubsub['topics'][ _topic ]['tags'][ _tag ]
             elif not tagslen:
-                removeSubscriber( pubsub['topics'][ topic ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
-            if not pubsub['topics'][ topic ]['notags']['list'] and not pubsub['topics'][ topic ]['tags']:
-                del pubsub['topics'][ topic ]
+                removeSubscriber( pubsub['topics'][ _topic ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
+            if not pubsub['topics'][ _topic ]['notags']['list'] and not pubsub['topics'][ _topic ]['tags']:
+                del pubsub['topics'][ _topic ]
         
         elif not topiclen and (tagslen or nslen):
             if tagslen:
-                if tags in pubsub['notopics']['tags']:
-                    removeSubscriber( pubsub['notopics']['tags'][ tags ], hasSubscriber, subscriber, namespaces, nslen )
-                    if not pubsub['notopics']['tags'][ tags ]['list']:
-                        del pubsub['notopics']['tags'][ tags ]
+                if _tag in pubsub['notopics']['tags']:
+                    removeSubscriber( pubsub['notopics']['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                    if not pubsub['notopics']['tags'][ _tag ]['list']:
+                        del pubsub['notopics']['tags'][ _tag ]
                 
                 # remove from any topics as well
                 for t in pubsub['topics']:
-                    if tags in pubsub['topics'][ t ]['tags']:
-                        removeSubscriber( pubsub['topics'][ t ]['tags'][ tags ], hasSubscriber, subscriber, namespaces, nslen )
-                        if not pubsub['topics'][ t ]['tags'][ tags ]['list']:
-                            del pubsub['topics'][ t ]['tags'][ tags ]
+                    if _tag in pubsub['topics'][ t ]['tags']:
+                        removeSubscriber( pubsub['topics'][ t ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                        if not pubsub['topics'][ t ]['tags'][ _tag ]['list']:
+                            del pubsub['topics'][ t ]['tags'][ _tag ]
             
             else:
                 removeSubscriber( pubsub['notopics']['notags'], hasSubscriber, subscriber, namespaces, nslen )
@@ -444,7 +438,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.5"
+    VERSION = "0.3.6"
     
     Event = PublishSubscribeEvent
     
