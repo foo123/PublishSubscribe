@@ -361,18 +361,27 @@ class PublishSubscribe implements PublishSubscribeInterface
                 $sl = count($subscribers['list']);
                 for ($s=0; $s<$sl; $s++)
                 {
-                    if ( !$hasNamespace || ($subscribers['list'][ $s ][ 2 ] && self::matchNamespace($subscribers['list'][ $s ][ 2 ], $namespaces)) ) 
+                    $subscriber =& $subscribers['list'][ $s ];
+                    if ( (!$subscriber[ 1 ] || !$subscriber[ 4 ]) && 
+                        (!$hasNamespace || 
+                        ($subscriber[ 2 ] && self::matchNamespace($subscriber[ 2 ], $namespaces))) 
+                    ) 
                     {
-                        $subs[] =& $subscribers['list'][ $s ];
+                        $subs[] = $subscriber;
                     }
                 }
                 
                 foreach ($subs as $subscriber)
                 {
+                    //if ( $subscriber[ 1 ] && $subscriber[ 4 ] > 0 ) continue; // oneoff subscriber already called
+                    
                     if ( $hasNamespace ) $evt->namespaces = array_merge(array(), $subscriber[ 3 ]);
                     else $evt->namespaces = array( );
+                    
                     $subscriber[ 4 ] = 1; // subscriber called
+                    
                     $res = call_user_func( $subscriber[ 0 ], $evt, $data );
+                    
                     // stop event propagation
                     if ( (false === $res) || $evt->eventStopped() ) break;
                 }

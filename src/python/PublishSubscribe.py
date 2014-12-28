@@ -256,14 +256,20 @@ def publish( target, seps, pubsub, topic, data ):
             sl = len(subscribers['list'])
             slr = range(sl)
             for s in slr:
-                if (not hasNamespace) or (subscribers['list'][ s ][ 2 ] and matchNamespace(subscribers['list'][ s ][ 2 ], namespaces)):
-                    subs.append( subscribers['list'][ s ] )
+                subscriber = subscribers['list'][ s ]
+                if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not hasNamespace) or (subscriber[ 2 ] and matchNamespace(subscriber[ 2 ], namespaces))):
+                    subs.append( subscriber )
             
             for subscriber in subs:
+                #if subscriber[ 1 ] and subscriber[ 4 ] > 0: continue # oneoff subscriber already called
+                
                 if hasNamespace: evt.namespaces = subscriber[ 3 ][:]
                 else: evt.namespaces = []
+                
                 subscriber[ 4 ] = 1 # subscriber called
+                
                 res = subscriber[ 0 ]( evt, data )
+                
                 # stop event propagation
                 if (False == res) or evt.eventStopped(): break
             

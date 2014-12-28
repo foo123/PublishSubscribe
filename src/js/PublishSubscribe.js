@@ -390,9 +390,13 @@
                 sl = subscribers.list.length;
                 for (s=0; s<sl; s++)
                 {
-                    if ( !hasNamespace || (subscribers.list[ s ][ 2 ] && matchNamespace(subscribers.list[ s ][ 2 ], namespaces, nl)) ) 
+                    subscriber = subscribers.list[ s ];
+                    if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
+                        (!hasNamespace || 
+                        (subscriber[ 2 ] && matchNamespace(subscriber[ 2 ], namespaces, nl))) 
+                    ) 
                     {
-                        subs.push( subscribers.list[ s ] );
+                        subs.push( subscriber );
                     }
                 }
                 
@@ -400,10 +404,15 @@
                 for (s=0; s<sl; s++)
                 {
                     subscriber = subs[ s ];
+                    //if ( subscriber[ 1 ] && subscriber[ 4 ] > 0 ) continue; // oneoff subscriber already called
+                    
                     if ( hasNamespace ) evt.namespaces = subscriber[ 3 ].slice( 0 );
                     else evt.namespaces = [ ];
+                    
                     subscriber[ 4 ] = 1; // subscriber called
+                    
                     res = subscriber[ 0 ]( evt, data );
+                    
                     // stop event propagation
                     if ( (false === res) || evt.eventStopped() ) break;
                 }
