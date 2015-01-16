@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.3.6
+*  @version: 0.4
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -33,12 +33,38 @@
     
     "use strict";
     
-    var __version__ = "0.3.6", 
+    var __version__ = "0.4", 
+        PROTO = 'prototype', HAS = 'hasOwnProperty',
         TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
         OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
-        KEYS = Object.keys, HAS = 'hasOwnProperty',
+        KEYS = Object.keys,
         NOW = Date.now ? Date.now : function( ){ return new Date().getTime(); }
     ;
+    
+    function PublishSubscribeData( props ) 
+    {
+        if ( props )
+        {
+            for (var k in props)
+            {
+                if ( props[HAS](k) )
+                    this[ k ] = props[ k ];
+            }
+        }
+    }
+    PublishSubscribeData[PROTO] = {
+        constructor: PublishSubscribeData,
+        dispose: function( props ) {
+            if ( props )
+            {
+                for (var k=0; k<props.length; k++)
+                {
+                    this[ props[ k ] ] = null;
+                }
+            }
+            return this;
+        }
+    };
     
     function PublishSubscribeEvent(target, topic, original, tags, namespaces)
     {
@@ -53,10 +79,11 @@
         else self.namespaces = [ ];
         self.data = { };
         self.timestamp = NOW( );
-        self._stopPropagation = false;
-        self._stopEvent = false;
+        self._propagates = true;
+        self._stopped = false;
+        self._aborted = false;
     }
-    PublishSubscribeEvent.prototype = {
+    PublishSubscribeEvent[PROTO] = {
         constructor: PublishSubscribeEvent,
         target: null,
         topic: null,
@@ -65,8 +92,11 @@
         namespaces: null,
         data: null,
         timestamp: 0,
-        _stopPropagation: false,
-        _stopEvent: false,
+        is_pipelined: false,
+        _next: null,
+        _propagates: true,
+        _stopped: false,
+        _aborted: false,
         
         dispose: function( ) {
             var self = this;
@@ -77,37 +107,70 @@
             self.namespaces = null;
             self.data = null;
             self.timestamp = null;
-            self._stopPropagation = true;
-            self._stopEvent = true;
+            self.is_pipelined = false;
+            self._propagates = true;
+            self._stopped = true;
+            self._aborted = false;
+            self._next = null;
             return self;
+        },
+        
+        next: function( ) {
+            if ('function' === typeof this._next) this._next(this);
+            return this;
+        },
+        
+        pipeline: function( next ) {
+            if ( !arguments.length ) next = null;
+            if ('function' === typeof next)
+            {
+                this._next = next;
+                this.is_pipelined = true;
+            }
+            else
+            {
+                this._next = null;
+                this.is_pipelined = false;
+            }
+            return this;
         },
         
         propagate: function( enable ) {
             if ( !arguments.length ) enable = true;
-            this._stopPropagation = !enable;
+            this._propagates = !!enable;
             return this;
         },
         
         stop: function( enable ) {
             if ( !arguments.length ) enable = true;
-            this._stopEvent = !!enable;
+            this._stopped = !!enable;
             return this;
         },
         
-        propagationStopped: function( ) {
-            return this._stopPropagation;
+        abort: function( enable ) {
+            if ( !arguments.length ) enable = true;
+            this._aborted = !!enable;
+            return this;
         },
         
-        eventStopped: function( ) {
-            return this._stopEvent;
+        aborted: function( ) {
+            return this._aborted;
+        },
+        
+        propagates: function( ) {
+            return this._propagates;
+        },
+        
+        stopped: function( ) {
+            return this._stopped;
         }
     };
     
-    function getPubSub( ) { return { notopics: { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} }, topics: {} }; }
+    function get_pubsub( ) { return { notopics: { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} }, topics: {} }; }
     
-    function notEmpty( s ) { return s.length > 0; }
+    function not_empty( s ) { return s.length > 0; }
     
-    function parseTopic( seps, topic )
+    function parse_topic( seps, topic )
     {
         var nspos, tagspos, tags, namespaces;
         
@@ -119,7 +182,7 @@
             namespaces = topic
                 .slice( nspos )
                 .split( seps[2] )
-                .filter( notEmpty )
+                .filter( not_empty )
                 .sort( )
             ;
             topic = topic.slice( 0, nspos );
@@ -133,7 +196,7 @@
             tags = topic
                     .slice( tagspos )
                     .split( seps[1] )
-                    .filter( notEmpty )
+                    .filter( not_empty )
                     .sort( )
             ;
             topic = topic.slice( 0, tagspos );
@@ -142,16 +205,16 @@
         {
             tags = [ ];
         }
-        topic = topic.split( seps[0] ).filter( notEmpty );
+        topic = topic.split( seps[0] ).filter( not_empty );
         return [topic, tags, namespaces];
     }
     
-    function getAllTopics( seps, topic ) 
+    function get_all_topics( seps, topic ) 
     { 
         var topics = [ ], tags = [ ], namespaces/* = [ ]*/, 
             ttags, tns, l, i, j, jj, tmp, combinations;
         
-        topic = parseTopic( seps, topic );
+        topic = parse_topic( seps, topic );
         //tns = topic[2];
         namespaces = topic[2];
         ttags = topic[1];
@@ -206,7 +269,7 @@
         return [topics.length ? topics[0] : '', topics, tags, namespaces];
     }
     
-    function updateNamespaces( pbns, namespaces, nl )
+    function update_namespaces( pbns, namespaces, nl )
     {
         var n, ns;
         for (n=0; n<nl; n++)
@@ -223,7 +286,7 @@
         }
     }
     
-    function removeNamespaces( pbns, namespaces, nl )
+    function remove_namespaces( pbns, namespaces, nl )
     {
         var n, ns;
         for (n=0; n<nl; n++)
@@ -237,7 +300,7 @@
         }
     }
     
-    function matchNamespace( pbns, namespaces, nl )
+    function match_namespace( pbns, namespaces, nl )
     {
         var n, ns;
         for (n=0; n<nl; n++)
@@ -248,7 +311,7 @@
         return true;
     }
     
-    function checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
+    function check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
     {
         var _topic = !!topic ? 'tp_' + topic : false, 
             _tag = !!tag ? 'tg_' + tag : false;
@@ -258,7 +321,7 @@
             if ( _tag && pubsub.topics[ _topic ].tags[HAS](_tag) )
             {
                 if ( pubsub.topics[ _topic ].tags[ _tag ].list.length &&
-                    (nl <= 0 || matchNamespace( pubsub.topics[ _topic ].tags[ _tag ].namespaces, namespaces, nl )) )
+                    (nl <= 0 || match_namespace( pubsub.topics[ _topic ].tags[ _tag ].namespaces, namespaces, nl )) )
                 {
                     subscribedTopics.push( [topic, tag, nl > 0, pubsub.topics[ _topic ].tags[ _tag ]] );
                     return true;
@@ -267,7 +330,7 @@
             else
             {
                 if ( pubsub.topics[ _topic ].notags.list.length && 
-                    (nl <= 0 || matchNamespace( pubsub.topics[ _topic ].notags.namespaces, namespaces, nl )) )
+                    (nl <= 0 || match_namespace( pubsub.topics[ _topic ].notags.namespaces, namespaces, nl )) )
                 {
                     subscribedTopics.push( [topic, null, nl > 0, pubsub.topics[ _topic ].notags] );
                     return true;
@@ -279,7 +342,7 @@
             if ( _tag && pubsub.notopics.tags[HAS](_tag) )
             {
                 if ( pubsub.notopics.tags[ _tag ].list.length &&
-                    (nl <= 0 || matchNamespace( pubsub.notopics.tags[ _tag ].namespaces, namespaces, nl )) )
+                    (nl <= 0 || match_namespace( pubsub.notopics.tags[ _tag ].namespaces, namespaces, nl )) )
                 {
                     subscribedTopics.push( [null, tag, nl > 0, pubsub.notopics.tags[ _tag ]] );
                     return true;
@@ -288,7 +351,7 @@
             else
             {
                 if ( pubsub.notopics.notags.list.length &&
-                    (nl <= 0 || matchNamespace( pubsub.notopics.notags.namespaces, namespaces, nl )) )
+                    (nl <= 0 || match_namespace( pubsub.notopics.notags.namespaces, namespaces, nl )) )
                 {
                     subscribedTopics.push( [null, null, true, pubsub.notopics.notags] );
                     return true;
@@ -299,9 +362,9 @@
         return false;
     }
     
-    function getSubscribedTopics( seps, pubsub, atopic )
+    function get_subscribed_topics( seps, pubsub, atopic )
     {
-        var all = getAllTopics( seps, atopic ), l, topic, tag, ns,
+        var all = get_all_topics( seps, atopic ), l, topic, tag, ns,
             //_topic, _tag,
             t, n, tl, nl, 
             topics = all[ 1 ], tags = all[ 2 ], namespaces = all[ 3 ], 
@@ -323,12 +386,12 @@
                         for (t=0; t<tl; t++)
                         {
                             tag = tags[ t ]; //_tag = 'tg_' + tag;
-                            checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl );
+                            check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl );
                         }
                     }
                     else
                     {
-                        checkIsSubscribed( pubsub, subscribedTopics, topic, null, namespaces, nl );
+                        check_is_subscribed( pubsub, subscribedTopics, topic, null, namespaces, nl );
                     }
                 }
                 topics.shift( );
@@ -340,10 +403,10 @@
             for (t=0; t<tl; t++)
             {
                 tag = tags[ t ];
-                checkIsSubscribed( pubsub, subscribedTopics, null, tag, namespaces, nl );
+                check_is_subscribed( pubsub, subscribedTopics, null, tag, namespaces, nl );
             }
         }
-        checkIsSubscribed( pubsub, subscribedTopics, null, null, namespaces, nl );
+        check_is_subscribed( pubsub, subscribedTopics, null, null, namespaces, nl );
         /*nss = { };
         if ( nl > 0 )
         {
@@ -356,13 +419,42 @@
         return [topTopic, subscribedTopics, namespaces];
     }
     
+    function unsubscribe_oneoffs( subscribers )
+    {
+        if ( subscribers && subscribers[HAS]("list") )
+        {
+            // unsubscribeOneOffs
+            var s, sl, subs;
+            if ( (subs=subscribers.list) && (sl=subs.length) )
+            {
+                if ( subscribers.oneOffs > 0 )
+                {
+                    for (s=sl-1; s>=0; s--)
+                    {
+                        subscriber = subs[ s ];
+                        if ( subscriber[1] && subscriber[4] > 0 )
+                        {
+                            subs.splice( s, 1 );
+                            subscribers.oneOffs = subscribers.oneOffs > 0 ? (subscribers.oneOffs-1) : 0;
+                        }
+                    }
+                }
+                else
+                {
+                    subscribers.oneOffs = 0;
+                }
+            }
+        }
+        return subscribers;
+    }
+    
     function publish( target, seps, pubsub, topic, data )
     {
         if ( pubsub )
         {
-            var topics = getSubscribedTopics( seps, pubsub, topic ), 
+            var topics = get_subscribed_topics( seps, pubsub, topic ), 
                 t, s, tl, sl, subs, subscribers, subscriber, topTopic, subTopic,
-                tags, namespaces, hasNamespace, nl, evt, res, pos, nskeys
+                tags, namespaces, hasNamespace, nl, evt, res = false, pos, nskeys
             ;
             topTopic = topics[ 0 ];
             namespaces = topics[ 2 ];
@@ -393,7 +485,7 @@
                     subscriber = subscribers.list[ s ];
                     if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
                         (!hasNamespace || 
-                        (subscriber[ 2 ] && matchNamespace(subscriber[ 2 ], namespaces, nl))) 
+                        (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], namespaces, nl))) 
                     ) 
                     {
                         subs.push( subscriber );
@@ -414,32 +506,14 @@
                     res = subscriber[ 0 ]( evt, data );
                     
                     // stop event propagation
-                    if ( (false === res) || evt.eventStopped() ) break;
+                    if ( (false === res) || evt.stopped() || evt.aborted() ) break;
                 }
                 
                 // unsubscribeOneOffs
-                if ( (subs=subscribers.list) && (sl=subs.length) )
-                {
-                    if ( subscribers.oneOffs > 0 )
-                    {
-                        for (s=sl-1; s>=0; s--)
-                        {
-                            subscriber = subs[ s ];
-                            if ( subscriber[1] && subscriber[4] > 0 )
-                            {
-                                subs.splice( s, 1 );
-                                subscribers.oneOffs = subscribers.oneOffs > 0 ? (subscribers.oneOffs-1) : 0;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        subscribers.oneOffs = 0;
-                    }
-                }
+                unsubscribe_oneoffs( subscribers );
                 
                 // stop event bubble propagation
-                if ( evt.propagationStopped() ) break;
+                if ( evt.aborted() || !evt.propagates() ) break;
             }
             
             if ( evt ) 
@@ -450,11 +524,115 @@
         }
     }
     
+    function create_pipeline_loop( evt, data, topics, abort )
+    {
+        var topTopic = topics[ 0 ],
+            namespaces = topics[ 2 ],
+            topics = topics[ 1 ];
+        evt.non_local = {
+            't': 0,
+            's': 0,
+            'start_topic': true,
+            'tl': topics.length,
+            'sl': 0,
+            'subscribers': null,
+            'topics': topics,
+            'namespaces': namespaces,
+            'nl': namespaces.length,
+            'hasNamespace': false,
+            'data': data,
+            'abort': abort
+        };
+        evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
+        var pipeline_loop = function pipeline_loop( evt ) {
+            var res, non_local = evt.non_local, subTopic, tags, subscriber;
+            if (non_local.t < non_local.tl)
+            {
+                if (non_local.start_topic)
+                {
+                    subTopic = non_local.topics[ non_local.t ][ 0 ];
+                    tags = non_local.topics[ non_local.t ][ 1 ];
+                    evt.topic = subTopic ? subTopic.split( OTOPIC_SEP ) : [ ];
+                    evt.tags = tags ? tags.split( OTAG_SEP ) : [ ];
+                    non_local.hasNamespace = non_local.topics[ non_local.t ][ 2 ];
+                    non_local.subscribers = non_local.topics[ non_local.t ][ 3 ];
+                    non_local.sl = non_local.subscribers.list.length;
+                    non_local.s = 0;
+                    non_local.start_topic = false;
+                }
+                if (!non_local.start_topic && non_local.s < non_local.sl)
+                {
+                    subscriber = non_local.subscribers.list[ non_local.s ];
+                    if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
+                        (!non_local.hasNamespace || 
+                        (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], non_local.namespaces, non_local.nl))) 
+                    ) 
+                    {
+                        if ( non_local.hasNamespace ) evt.namespaces = subscriber[ 3 ].slice( 0 );
+                        else evt.namespaces = [ ];
+                        
+                        subscriber[ 4 ] = 1; // subscriber called
+                        
+                        res = subscriber[ 0 ]( evt, non_local.data );
+                        
+                        // stop event propagation
+                        if ( (false === res) || evt.stopped() || evt.aborted() ) 
+                        {
+                            // unsubscribeOneOffs
+                            unsubscribe_oneoffs( non_local.subscribers );
+                            if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt, non_local.data );
+                            return false;
+                        }
+                    }
+                    non_local.s += 1;
+                }
+                if (!non_local.start_topic && non_local.s >= non_local.sl)
+                {
+                    // unsubscribeOneOffs
+                    unsubscribe_oneoffs( non_local.subscribers );
+                    // stop event bubble propagation
+                    if ( evt.aborted() || !evt.propagates() ) 
+                    {
+                        if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt, non_local.data );
+                        return false;
+                    }
+                    non_local.t += 1;
+                    non_local.start_topic = true;
+                }
+                //pipeline_loop( evt );
+            }
+            else 
+            {
+                if ( evt )
+                {
+                    evt.non_local = null;
+                    evt.dispose( );
+                    evt = null;
+                }
+            }
+        };
+        return pipeline_loop;
+    }
+    
+    function pipeline( target, seps, pubsub, topic, data, abort )
+    {
+        if ( pubsub )
+        {
+            var topics = get_subscribed_topics( seps, pubsub, topic ), evt = null, pipeline_loop;
+            if ( topics[ 1 ].length > 0 ) 
+            {
+                evt = new PublishSubscribeEvent( target );
+                evt.pipeline( pipeline_loop = create_pipeline_loop( evt, data, topics, abort ) );
+                pipeline_loop( evt );
+            }
+        }
+    }
+    
     function subscribe( seps, pubsub, topic, subscriber, oneOff, on1 )
     {
         if ( pubsub && "function" === typeof(subscriber) )
         {
-            topic = parseTopic( seps, topic );
+            topic = parse_topic( seps, topic );
             var tags = topic[1].join( OTAG_SEP ), tagslen = tags.length, entry, queue,
                 _topic, _tag,
                 namespaces = topic[2], nshash, namespaces_ref, n, nslen = namespaces.length;
@@ -516,12 +694,12 @@
                 if ( on1 ) queue.list.unshift( entry );
                 else queue.list.push( entry );
                 if ( oneOff ) queue.oneOffs++;
-                if ( nslen ) updateNamespaces( queue.namespaces, namespaces, nslen );
+                if ( nslen ) update_namespaces( queue.namespaces, namespaces, nslen );
             }
         }
     }
     
-    function removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen )
+    function remove_subscriber( pb, hasSubscriber, subscriber, namespaces, nslen )
     {
         var pos = pb.list.length, nskeys;
         if ( hasSubscriber )
@@ -532,10 +710,10 @@
                 {
                     if ( subscriber === pb.list[pos][0] )  
                     {
-                        if ( nslen && pb.list[pos][2] && matchNamespace( pb.list[pos][2], namespaces, nslen ) )
+                        if ( nslen && pb.list[pos][2] && match_namespace( pb.list[pos][2], namespaces, nslen ) )
                         {
                             nskeys = KEYS(pb.list[pos][2]);
-                            removeNamespaces( pb.namespaces, nskeys, nskeys.length );
+                            remove_namespaces( pb.namespaces, nskeys, nskeys.length );
                             if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                             pb.list.splice( pos, 1 );
                         }
@@ -544,7 +722,7 @@
                             if ( pb.list[pos][2] ) 
                             {
                                 nskeys = KEYS(pb.list[pos][2]);
-                                removeNamespaces( pb.namespaces, nskeys, nskeys.length );
+                                remove_namespaces( pb.namespaces, nskeys, nskeys.length );
                             }
                             if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                             pb.list.splice( pos, 1 );
@@ -557,10 +735,10 @@
         {
             while ( --pos >= 0 )
             {
-                if ( pb.list[pos][2] && matchNamespace( pb.list[pos][2], namespaces, nslen ) )
+                if ( pb.list[pos][2] && match_namespace( pb.list[pos][2], namespaces, nslen ) )
                 {
                     nskeys = KEYS(pb.list[pos][2]);
-                    removeNamespaces( pb.namespaces, nskeys, nskeys.length );
+                    remove_namespaces( pb.namespaces, nskeys, nskeys.length );
                     if ( pb.list[pos][1] ) pb.oneOffs = pb.oneOffs > 0 ? (pb.oneOffs-1) : 0;
                     pb.list.splice( pos, 1 );
                 }
@@ -578,7 +756,7 @@
     {
         if ( pubsub )
         {
-            topic = parseTopic( seps, topic );
+            topic = parse_topic( seps, topic );
             var t, t2, tags = topic[1].join( OTAG_SEP ), namespaces = topic[2],
                 _topic, _tag,
                 tagslen = tags.length, nslen = namespaces.length, topiclen,
@@ -594,13 +772,13 @@
             {
                 if ( tagslen && pubsub.topics[ _topic ].tags[HAS](_tag) ) 
                 {
-                    removeSubscriber( pubsub.topics[ _topic ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                    remove_subscriber( pubsub.topics[ _topic ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                     if ( !pubsub.topics[ _topic ].tags[ _tag ].list.length )
                         delete pubsub.topics[ _topic ].tags[ _tag ];
                 }
                 else if ( !tagslen )
                 {
-                    removeSubscriber( pubsub.topics[ _topic ].notags, hasSubscriber, subscriber, namespaces, nslen );
+                    remove_subscriber( pubsub.topics[ _topic ].notags, hasSubscriber, subscriber, namespaces, nslen );
                 }
                 if ( !pubsub.topics[ _topic ].notags.list.length && !KEYS(pubsub.topics[ _topic ].tags).length )
                     delete pubsub.topics[ _topic ];
@@ -611,7 +789,7 @@
                 {
                     if ( pubsub.notopics.tags[HAS](_tag) )
                     {
-                        removeSubscriber( pubsub.notopics.tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                        remove_subscriber( pubsub.notopics.tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                         if ( !pubsub.notopics.tags[ _tag ].list.length )
                             delete pubsub.notopics.tags[ _tag ];
                     }
@@ -621,7 +799,7 @@
                     {
                         if ( pubsub.topics[HAS](t) && pubsub.topics[ t ].tags[HAS](_tag) )
                         {
-                            removeSubscriber( pubsub.topics[ t ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
+                            remove_subscriber( pubsub.topics[ t ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                             if ( !pubsub.topics[ t ].tags[ _tag ].list.length )
                                 delete pubsub.topics[ t ].tags[ _tag ];
                         }
@@ -629,14 +807,14 @@
                 }
                 else
                 {
-                    removeSubscriber( pubsub.notopics.notags, hasSubscriber, subscriber, namespaces, nslen );
+                    remove_subscriber( pubsub.notopics.notags, hasSubscriber, subscriber, namespaces, nslen );
                     
                     // remove from any tags as well
                     for ( t2 in pubsub.notopics.tags )
                     {
                         if ( pubsub.notopics.tags[HAS](t2) )
                         {
-                            removeSubscriber( pubsub.notopics.tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
+                            remove_subscriber( pubsub.notopics.tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
                             if ( !pubsub.notopics.tags[ t2 ].list.length )
                                 delete pubsub.notopics.tags[ t2 ];
                         }
@@ -647,13 +825,13 @@
                     {
                         if ( pubsub.topics[HAS](t) )
                         {
-                            removeSubscriber( pubsub.topics[ t ].notags, hasSubscriber, subscriber, namespaces, nslen );
+                            remove_subscriber( pubsub.topics[ t ].notags, hasSubscriber, subscriber, namespaces, nslen );
                             
                             for ( t2 in pubsub.topics[ t ].tags )
                             {
                                 if ( pubsub.topics[ t ].tags[HAS](t2) )
                                 {
-                                    removeSubscriber( pubsub.topics[ t ].tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
+                                    remove_subscriber( pubsub.topics[ t ].tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
                                     if ( !pubsub.topics[ t ].tags[ t2 ].list.length )
                                         delete pubsub.topics[ t ].tags[ t2 ];
                                 }
@@ -673,7 +851,7 @@
     };
     PublishSubscribe.VERSION = __version__;
     PublishSubscribe.Event = PublishSubscribeEvent;
-    PublishSubscribe.prototype = {
+    PublishSubscribe[PROTO] = {
         constructor: PublishSubscribe
         
         ,_seps: null
@@ -682,7 +860,7 @@
         ,initPubSub: function( ) {
             var self = this;
             self._seps = [TOPIC_SEP, TAG_SEP, NS_SEP];
-            self._pubsub$ = getPubSub( );
+            self._pubsub$ = get_pubsub( );
             return self;
         }
         
@@ -691,6 +869,10 @@
             self._seps = null;
             self._pubsub$ = null;
             return self;
+        }
+        
+        ,Data: function( props ) {
+            return new PublishSubscribeData(props);
         }
         
         ,setSeparators: function( seps ) {
@@ -720,6 +902,27 @@
             {
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
                 publish( self, self._seps, self._pubsub$, message, data );
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+            }
+            return self;
+        }
+        
+        ,pipeline: function( message, data, abort, delay ) {
+            var self = this;
+            if ( 4 > arguments.length ) delay = 0;
+            delay = +delay;
+            
+            data = data || { };
+            if ( delay > 0 )
+            {
+                setTimeout(function( ) {
+                    pipeline( self, self._seps, self._pubsub$, message, data, abort );
+                }, delay);
+            }
+            else
+            {
+                //console.log(JSON.stringify(self._pubsub$, null, 4));
+                pipeline( self, self._seps, self._pubsub$, message, data, abort );
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
             }
             return self;

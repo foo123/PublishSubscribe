@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.3.6
+#  @version: 0.4
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -18,6 +18,18 @@ OTOPIC_SEP = '/'
 OTAG_SEP = '#'
 ONS_SEP = '@'
 
+class PublishSubscribeData:
+    
+    def __init__(self, props=None):
+        if props:
+            for k,v in props.items(): setattr(self, k, v)
+    
+    def dispose(self, props=None):
+        if props:
+            for k in props: setattr(self, k, None)
+        return self
+            
+            
 class PublishSubscribeEvent:
     
     def __init__( self, target=None, topic=None, original=None, tags=None, namespaces=None ):
@@ -32,8 +44,11 @@ class PublishSubscribeEvent:
         else: self.namespaces = []
         self.data = {}
         self.timestamp = int(round(time.time() * 1000))
-        self._stopPropagation = False
-        self._stopEvent = False
+        self._propagates = True
+        self._stopped = False
+        self._aborted = False
+        self.is_pipelined = False
+        self._next = None
     
     def dispose( self ):
         self.target = None
@@ -43,60 +58,83 @@ class PublishSubscribeEvent:
         self.namespaces = None
         self.data = None
         self.timestamp = None
-        self._stopPropagation = True
-        self._stopEvent = True
+        self.is_pipelined = False
+        self._propagates = False
+        self._stopped = True
+        self._aborted = False
+        self._next = None
+        return self
+    
+    def next( self ):
+        if callable(self._next): self._next()
+        return self
+    
+    def pipeline( self, next=None ):
+        if callable(next):
+            self._next = next
+            self.is_pipelined = True
+        else:
+            self._next = None
+            self.is_pipelined = False
         return self
     
     def propagate( self, enable=True ):
-        self._stopPropagation = not bool(enable)
+        self._propagates = bool(enable)
         return self
     
     def stop( self, enable=True ):
-        self._stopEvent = bool(enable)
+        self._stopped = bool(enable)
         return self
     
-    def propagationStopped( self ):
-        return self._stopPropagation
+    def abort( self, enable=True ):
+        self._aborted = bool(enable)
+        return self
     
-    def eventStopped( self ):
-        return self._stopEvent
+    def propagates( self ):
+        return self._propagates
+    
+    def aborted( self ):
+        return self._aborted
+    
+    def stopped( self ):
+        return self._stopped
 
 
-def getPubSub( ): 
+def get_pubsub( ): 
     return { 'notopics': { 'notags': {'namespaces': {}, 'list': [], 'oneOffs': 0}, 'tags': {} }, 'topics': {} }
     
-def notEmpty( s ): 
+def not_empty( s ): 
     return len(s) > 0
     
 
-def parseTopic( seps, topic ):
+def parse_topic( seps, topic ):
     nspos = topic.find( seps[2] )
     tagspos = topic.find( seps[1] )
     
     if -1 < nspos:
-        namespaces = [x for x in topic[nspos:].split( seps[2] ) if notEmpty(x)]
+        namespaces = [x for x in topic[nspos:].split( seps[2] ) if not_empty(x)]
         namespaces = sorted( namespaces )
         topic = topic[0:nspos]
     else:
         namespaces = [ ]
     
     if -1 < tagspos:
-        tags = [x for x in topic[tagspos:].split( seps[1] ) if notEmpty(x)]
+        tags = [x for x in topic[tagspos:].split( seps[1] ) if not_empty(x)]
         tags = sorted( tags )
         topic = topic[0:tagspos]
     else:
         tags = [ ]
     
-    topic = [x for x in topic.split( seps[0] ) if notEmpty(x)]
+    topic = [x for x in topic.split( seps[0] ) if not_empty(x)]
     return [topic, tags, namespaces]
 
 
-def getAllTopics( seps, topic ): 
+def get_all_topics( seps, topic ): 
     topics = [ ]
     tags = [ ]
     #namespaces = [ ] 
     
-    topic = parseTopic( seps, topic )
+    topic = parse_topic( seps, topic )
     #tns = topic[2]
     namespaces = topic[2]
     ttags = topic[1]
@@ -144,7 +182,7 @@ def getAllTopics( seps, topic ):
     return [topTopic, topics, tags, namespaces]
 
 
-def updateNamespaces( pbns, namespaces, nl=0 ):
+def update_namespaces( pbns, namespaces, nl=0 ):
     for ns in namespaces:
         ns = 'ns_' + ns
         if not (ns in pbns):
@@ -153,7 +191,7 @@ def updateNamespaces( pbns, namespaces, nl=0 ):
             pbns[ ns ] += 1
 
 
-def removeNamespaces( pbns, namespaces, nl=0 ):
+def remove_namespaces( pbns, namespaces, nl=0 ):
     for ns in namespaces:
         ns = 'ns_' + ns
         if ns in pbns:
@@ -162,36 +200,36 @@ def removeNamespaces( pbns, namespaces, nl=0 ):
                 del pbns[ ns ]
 
 
-def matchNamespace( pbns, namespaces, nl=0 ):
+def match_namespace( pbns, namespaces, nl=0 ):
     for ns in namespaces:
         ns = 'ns_' + ns
         if (ns not in pbns) or (0 >= pbns[ ns ]): return False
     return True
 
 
-def checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl ):
+def check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl ):
     _topic = 'tp_' + topic if topic else False
     _tag = 'tg_' + tag if tag else False
     
     if _topic and (_topic in pubsub['topics']):
         if _tag and (_tag in pubsub['topics'][ _topic ]['tags']):
-            if notEmpty(pubsub['topics'][ _topic ]['tags'][ _tag ]['list']) and (nl <= 0 or matchNamespace( pubsub['topics'][ _topic ]['tags'][ _tag ]['namespaces'], namespaces, nl )):
+            if not_empty(pubsub['topics'][ _topic ]['tags'][ _tag ]['list']) and (nl <= 0 or match_namespace( pubsub['topics'][ _topic ]['tags'][ _tag ]['namespaces'], namespaces, nl )):
                 subscribedTopics.append( [topic, tag, nl > 0, pubsub['topics'][ _topic ]['tags'][ _tag ]] )
                 return True
         
         else:
-            if notEmpty(pubsub['topics'][ _topic ]['notags']['list']) and (nl <= 0 or matchNamespace( pubsub['topics'][ _topic ]['notags']['namespaces'], namespaces, nl )):
+            if not_empty(pubsub['topics'][ _topic ]['notags']['list']) and (nl <= 0 or match_namespace( pubsub['topics'][ _topic ]['notags']['namespaces'], namespaces, nl )):
                 subscribedTopics.append( [topic, None, nl > 0, pubsub['topics'][ +topic ]['notags']] )
                 return True
     
     else:
         if _tag and (_tag in pubsub['notopics']['tags']):
-            if notEmpty(pubsub['notopics']['tags'][ _tag ]['list']) and (nl <= 0 or matchNamespace( pubsub['notopics']['tags'][ _tag ]['namespaces'], namespaces, nl )):
+            if not_empty(pubsub['notopics']['tags'][ _tag ]['list']) and (nl <= 0 or match_namespace( pubsub['notopics']['tags'][ _tag ]['namespaces'], namespaces, nl )):
                 subscribedTopics.append( [None, tag, nl > 0, pubsub['notopics']['tags'][ _tag ]] )
                 return True
         
         else:
-            if notEmpty(pubsub['notopics']['notags']['list']) and (nl > 0 and matchNamespace( pubsub['notopics']['notags']['namespaces'], namespaces, nl )):
+            if not_empty(pubsub['notopics']['notags']['list']) and (nl > 0 and match_namespace( pubsub['notopics']['notags']['namespaces'], namespaces, nl )):
                 subscribedTopics.append( [None, None, True, pubsub['notopics']['notags']] )
                 return True
             # else no topics no tags no namespaces, do nothing
@@ -199,8 +237,8 @@ def checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl ):
     return False
 
 
-def getSubscribedTopics( seps, pubsub, atopic ):
-    all = getAllTopics( seps, atopic )
+def get_subscribed_topics( seps, pubsub, atopic ):
+    all = get_all_topics( seps, atopic )
     topics = all[ 1 ]
     tags = all[ 2 ]
     namespaces = all[ 3 ] 
@@ -216,29 +254,43 @@ def getSubscribedTopics( seps, pubsub, atopic ):
             if ('tp_'+topic) in  pubsub['topics']:
                 if tl > 0:
                     for tag in tags:
-                        checkIsSubscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
+                        check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, nl )
                 else:
-                    checkIsSubscribed( pubsub, subscribedTopics, topic, None, namespaces, nl )
+                    check_is_subscribed( pubsub, subscribedTopics, topic, None, namespaces, nl )
             topics.pop( 0 )
             l -= 1
     
     if tl > 0:
         for tag in tags:
-            checkIsSubscribed( pubsub, subscribedTopics, None, tag, namespaces, nl )
+            check_is_subscribed( pubsub, subscribedTopics, None, tag, namespaces, nl )
     
-    checkIsSubscribed( pubsub, subscribedTopics, None, None, namespaces, nl )
+    check_is_subscribed( pubsub, subscribedTopics, None, None, namespaces, nl )
     
     return [topTopic, subscribedTopics, namespaces]
+
+def unsubscribe_oneoffs( subscribers ):
+    if subscribers and ('list' in subscribers) and len(subscribers['list']) > 0:
+        if len(subscribers['list']) > 0:
+            if subscribers['oneOffs'] > 0:
+                subs = subscribers['list']
+                for s in range(len(subs)-1,-1,-1):
+                    subscriber = subs[ s ]
+                    if subscriber[1] and subscriber[4] > 0:
+                        del subs[s:s+1]
+                        subscribers['oneOffs'] = subscribers['oneOffs']-1 if subscribers['oneOffs'] > 0 else 0
+            else: subscribers['oneOffs'] = 0
+    return subscribers
 
 
 def publish( target, seps, pubsub, topic, data ):
     if pubsub:
-        topics = getSubscribedTopics( seps, pubsub, topic )
+        topics = get_subscribed_topics( seps, pubsub, topic )
         topTopic = topics[ 0 ]
         namespaces = topics[ 2 ]
         topics = topics[ 1 ]
         tl = len(topics)
         evt = None
+        res = False
         
         if tl > 0:
             evt = PublishSubscribeEvent( target )
@@ -257,7 +309,7 @@ def publish( target, seps, pubsub, topic, data ):
             slr = range(sl)
             for s in slr:
                 subscriber = subscribers['list'][ s ]
-                if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not hasNamespace) or (subscriber[ 2 ] and matchNamespace(subscriber[ 2 ], namespaces))):
+                if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not hasNamespace) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], namespaces))):
                     subs.append( subscriber )
             
             for subscriber in subs:
@@ -271,30 +323,109 @@ def publish( target, seps, pubsub, topic, data ):
                 res = subscriber[ 0 ]( evt, data )
                 
                 # stop event propagation
-                if (False == res) or evt.eventStopped(): break
+                if (False == res) or evt.stopped() or evt.aborted(): break
             
             # unsubscribeOneOffs
-            if ('list' in subscribers) and len(subscribers['list']) > 0:
-                if subscribers['oneOffs'] > 0:
-                    subs = subscribers['list']
-                    for s in range(len(subs)-1,-1,-1):
-                        subscriber = subs[ s ]
-                        if subscriber[1] and subscriber[4] > 0:
-                            del subs[s:s+1]
-                            subscribers['oneOffs'] = subscribers['oneOffs']-1 if subscribers['oneOffs'] > 0 else 0
-                else: subscribers['oneOffs'] = 0
+            unsubscribe_oneoffs( subscribers )
                     
             # stop event bubble propagation
-            if evt.propagationStopped(): break
+            if evt.aborted() or not evt.propagates(): break
         
         if evt:
             evt.dispose( )
             evt = None
+        
 
+
+def create_pipeline_loop(evt, data, topics, abort):
+    topTopic = topics[ 0 ]
+    namespaces = topics[ 2 ]
+    topics = topics[ 1 ]
+    evt.non_local = {
+        't': 0,
+        's': 0,
+        'start_topic': True,
+        'tl': len(topics),
+        'sl': 0,
+        'subscribers': None,
+        'topics': topics,
+        'namespaces': namespaces,
+        'hasNamespace': False,
+        'data': data,
+        'abort': abort
+    }
+    evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
+    
+    def pipeline_loop( evt ):
+        non_local = evt.non_local
+        data = non_local['data']
+        if non_local['t'] < non_local['tl']:
+            if non_local['start_topic']:
+                subTopic = non_local['topics'][non_local['t']][ 0 ]
+                tags = non_local['topics'][non_local['t']][ 1 ]
+                evt.topic = subTopic.split(OTOPIC_SEP) if subTopic else []
+                evt.tags = tags.split(OTAG_SEP) if tags else []
+                non_local['hasNamespace'] = non_local['topics'][non_local['t']][ 2 ]
+                non_local['subscribers'] = non_local['topics'][non_local['t']][ 3 ]
+                non_local['s'] = 0
+                non_local['sl'] = len(non_local['subscribers'])
+                non_local['start_topic'] = False
+            if not non_local['start_topic'] and non_local['s']<non_local['sl']:
+                
+                subscriber = non_local['subscribers']['list'][ non_local['s'] ]
+                
+                if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not non_local['hasNamespace']) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], non_local['namespaces']))):
+                    
+                    if non_local['hasNamespace']: evt.namespaces = subscriber[ 3 ][:]
+                    else: evt.namespaces = []
+                    
+                    subscriber[ 4 ] = 1 # subscriber called
+                    
+                    res = subscriber[ 0 ]( evt, data )
+                    
+                    # stop event propagation
+                    if (False == res) or evt.stopped() or evt.aborted():
+                        # unsubscribeOneOffs
+                        unsubscribe_oneoffs( non_local['subscribers'] )
+                        if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt, non_local['data'] )
+                        return False
+                
+                non_local['s'] += 1
+                    
+            if not non_local['start_topic'] and non_local['s']>=non_local['sl']:
+                # unsubscribeOneOffs
+                unsubscribe_oneoffs( non_local['subscribers'] )
+                # stop event bubble propagation
+                if evt.aborted() or not evt.propagates(): 
+                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt, non_local['data'] )
+                    return False
+                non_local['t'] += 1
+                non_local['start_topic'] = True
+            
+            #pipeline_loop( evt )
+        else:
+            if evt:
+                evt.non_local = None
+                evt.dispose( )
+                evt = None
+    
+    return pipeline_loop
+    
+    
+def pipeline( target, seps, pubsub, topic, data, abort=None ):
+    if pubsub:
+        topics = get_subscribed_topics( seps, pubsub, topic )
+        
+        if len(topics[ 1 ]) > 0:
+            evt = PublishSubscribeEvent( target )
+            pipeline_loop = create_pipeline_loop(evt, data, topics, abort)
+            evt.pipeline( pipeline_loop )
+            pipeline_loop( evt )
+        
 
 def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
     if pubsub and callable(subscriber):
-        topic = parseTopic( seps, topic )
+        topic = parse_topic( seps, topic )
         tags = OTAG_SEP.join( topic[1] ) 
         tagslen = len(tags)
         namespaces = topic[2]
@@ -337,10 +468,10 @@ def subscribe( seps, pubsub, topic, subscriber, oneOff=False, on1=False ):
             if on1: queue['list'].insert( 0, entry )
             else: queue['list'].append( entry )
             if oneOff: queue['oneOffs'] += 1
-            if nslen: updateNamespaces( queue['namespaces'], namespaces, nslen )
+            if nslen: update_namespaces( queue['namespaces'], namespaces, nslen )
 
 
-def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
+def remove_subscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
     pos = len(pb['list'])
     
     if hasSubscriber:
@@ -348,13 +479,13 @@ def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
             pos -= 1
             while pos >= 0:
                 if subscriber == pb.list[pos][0]:
-                    if nslen and pb.list[pos][2] and matchNamespace( pb['list'][pos][2], namespaces, nslen ):
-                        removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+                    if nslen and pb.list[pos][2] and match_namespace( pb['list'][pos][2], namespaces, nslen ):
+                        remove_namespaces( pb['namespaces'], pb['list'][pos][2].keys() )
                         if pb['list'][pos][1]: 
                             pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                         del pb['list'][pos:pos+1]
                     elif not nslen:
-                        if pb['list'][pos][2]: removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+                        if pb['list'][pos][2]: remove_namespaces( pb['namespaces'], pb['list'][pos][2].keys() )
                         if pb['list'][pos][1]: 
                             pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                         del pb['list'][pos:pos+1]
@@ -363,8 +494,8 @@ def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
     elif not hasSubscriber and (nslen > 0) and (pos > 0):
         pos -= 1
         while pos >= 0:
-            if pb['list'][pos][2] and matchNamespace( pb['list'][pos][2], namespaces, nslen ):
-                removeNamespaces( pb['namespaces'], pb['list'][pos][2].keys() )
+            if pb['list'][pos][2] and match_namespace( pb['list'][pos][2], namespaces, nslen ):
+                remove_namespaces( pb['namespaces'], pb['list'][pos][2].keys() )
                 if pb['list'][pos][1]: 
                     pb['oneOffs'] = pb['oneOffs']-1 if pb['oneOffs'] > 0 else 0
                 del pb['list'][pos:pos+1]
@@ -379,7 +510,7 @@ def removeSubscriber( pb, hasSubscriber, subscriber, namespaces, nslen ):
 def unsubscribe( seps, pubsub, topic, subscriber=None ):
     if pubsub:
         
-        topic = parseTopic( seps, topic )
+        topic = parse_topic( seps, topic )
         tags = OTAG_SEP.join( topic[1] ) 
         namespaces = topic[2]
         tagslen = len(tags)
@@ -394,43 +525,43 @@ def unsubscribe( seps, pubsub, topic, subscriber=None ):
         
         if topiclen and (_topic in pubsub['topics']):
             if tagslen and (_tag in pubsub['topics'][ _topic ]['tags']):
-                removeSubscriber( pubsub['topics'][ _topic ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                remove_subscriber( pubsub['topics'][ _topic ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
                 if not pubsub['topics'][ _topic ]['tags'][ _tag ]['list']:
                     del pubsub['topics'][ _topic ]['tags'][ _tag ]
             elif not tagslen:
-                removeSubscriber( pubsub['topics'][ _topic ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
+                remove_subscriber( pubsub['topics'][ _topic ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
             if not pubsub['topics'][ _topic ]['notags']['list'] and not pubsub['topics'][ _topic ]['tags']:
                 del pubsub['topics'][ _topic ]
         
         elif not topiclen and (tagslen or nslen):
             if tagslen:
                 if _tag in pubsub['notopics']['tags']:
-                    removeSubscriber( pubsub['notopics']['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                    remove_subscriber( pubsub['notopics']['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
                     if not pubsub['notopics']['tags'][ _tag ]['list']:
                         del pubsub['notopics']['tags'][ _tag ]
                 
                 # remove from any topics as well
                 for t in pubsub['topics']:
                     if _tag in pubsub['topics'][ t ]['tags']:
-                        removeSubscriber( pubsub['topics'][ t ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
+                        remove_subscriber( pubsub['topics'][ t ]['tags'][ _tag ], hasSubscriber, subscriber, namespaces, nslen )
                         if not pubsub['topics'][ t ]['tags'][ _tag ]['list']:
                             del pubsub['topics'][ t ]['tags'][ _tag ]
             
             else:
-                removeSubscriber( pubsub['notopics']['notags'], hasSubscriber, subscriber, namespaces, nslen )
+                remove_subscriber( pubsub['notopics']['notags'], hasSubscriber, subscriber, namespaces, nslen )
                 
                 # remove from any tags as well
                 for t2 in pubsub['notopics']['tags']:
-                    removeSubscriber( pubsub['notopics']['tags'][ t2 ], hasSubscriber, subscriber, namespaces, nslen )
+                    remove_subscriber( pubsub['notopics']['tags'][ t2 ], hasSubscriber, subscriber, namespaces, nslen )
                     if not pubsub['notopics']['tags'][ t2 ]['list']:
                         del pubsub['notopics']['tags'][ t2 ]
                 
                 # remove from any topics and tags as well
                 for t in pubsub['topics']:
-                    removeSubscriber( pubsub['topics'][ t ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
+                    remove_subscriber( pubsub['topics'][ t ]['notags'], hasSubscriber, subscriber, namespaces, nslen )
                     
                     for t2 in pubsub['topics'][ t ]['tags']:
-                        removeSubscriber( pubsub['topics'][ t ]['tags'][ t2 ], hasSubscriber, subscriber, namespaces, nslen )
+                        remove_subscriber( pubsub['topics'][ t ]['tags'][ t2 ], hasSubscriber, subscriber, namespaces, nslen )
                         if not pubsub['topics'][ t ]['tags'][ t2 ]['list']:
                             del pubsub['topics'][ t ]['tags'][ t2 ]
 
@@ -444,7 +575,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.3.6"
+    VERSION = "0.4"
     
     Event = PublishSubscribeEvent
     
@@ -453,7 +584,7 @@ class PublishSubscribe:
     
     def initPubSub( self ):
         self._seps = [TOPIC_SEP, TAG_SEP, NS_SEP]
-        self._pubsub = getPubSub( )
+        self._pubsub = get_pubsub( )
         return self
     
     def disposePubSub( self ):
@@ -461,6 +592,9 @@ class PublishSubscribe:
         self._pubsub = None
         return self
     
+    def Data( self, props=None ):
+        return PublishSubscribeData(props)
+        
     def setSeparators( self, seps ):
         if seps:
             l = len(seps)
@@ -473,6 +607,13 @@ class PublishSubscribe:
         if not data: data = { }
         #print( pprint.pformat(self._pubsub, 4) )
         publish( self, self._seps, self._pubsub, message, data )
+        #print( pprint.pformat(self._pubsub, 4) )
+        return self
+    
+    def pipeline( self, message, data=None, abort=None ):
+        if not data: data = { }
+        #print( pprint.pformat(self._pubsub, 4) )
+        pipeline( self, self._seps, self._pubsub, message, data, abort )
         #print( pprint.pformat(self._pubsub, 4) )
         return self
     

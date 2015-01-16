@@ -77,6 +77,9 @@ pb.off( topic_with_tags_namespaces [, handlerFunc=null ] );
 // trigger/publish a topic with (optional) tags and (optional) namespaces and pass any data as well
 pb.trigger( topic_with_tags_namespaces, data );
 
+// pipeline allows to call subscribers (of given topic/message) asynchronously via a pipeline
+pb.pipeline( topic_with_tags_namespaces, data );
+
 // dispose PublishSubscribe instance
 pb.disposePubSub( );
 
@@ -135,7 +138,7 @@ var pb = new PublishSubscribe( )
 **output**
 ```text
 
-PublishSubscribe.VERSION = 0.3.6
+PublishSubscribe.VERSION = 0.4
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
