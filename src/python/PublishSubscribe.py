@@ -591,6 +591,10 @@ class PublishSubscribe:
     
     Event = PublishSubscribeEvent
     
+    def Data( props=None ):
+        return PublishSubscribeData(props)
+        
+    
     def __init__( self ):
         self.initPubSub( )
     
@@ -604,9 +608,6 @@ class PublishSubscribe:
         self._pubsub = None
         return self
     
-    def Data( self, props=None ):
-        return PublishSubscribeData(props)
-        
     def setSeparators( self, seps ):
         if seps:
             l = len(seps)

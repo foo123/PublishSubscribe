@@ -6,7 +6,7 @@ Handler2
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1421506419236,
+    'timestamp': 1421507968261,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}
 Handler1
@@ -14,7 +14,7 @@ Handler1
 {   'namespaces': [],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1421506419236,
+    'timestamp': 1421507968261,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}
 Handler2
@@ -22,6 +22,6 @@ Handler2
 {   'namespaces': ['NS1'],
     'originalTopic': ['Topic1', 'SubTopic11'],
     'tags': ['Tag1', 'Tag2'],
-    'timestamp': 1421506419237,
+    'timestamp': 1421507968261,
     'topic': ['Topic1', 'SubTopic11']}
 {'key1': 'value1'}

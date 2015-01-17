@@ -832,6 +832,11 @@ class PublishSubscribe implements PublishSubscribeInterface
         }
     }
     
+    public static function Data($props=null)
+    {
+        return new PublishSubscribeData($props);
+    }
+    
     private $_seps = null;
     private $_pubsub = null;
         
@@ -854,11 +859,6 @@ class PublishSubscribe implements PublishSubscribeInterface
         $this->_seps = null;
         $this->_pubsub = null;
         return $this;
-    }
-    
-    public function Data($props=null)
-    {
-        return new PublishSubscribeData($props);
     }
     
     public function setSeparators( $seps ) 

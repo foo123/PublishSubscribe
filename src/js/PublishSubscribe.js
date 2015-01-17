@@ -867,7 +867,13 @@
         this.initPubSub( ); 
     };
     PublishSubscribe.VERSION = __version__;
+    
     PublishSubscribe.Event = PublishSubscribeEvent;
+    
+    PublishSubscribe.Data = function( props ) {
+        return new PublishSubscribeData(props);
+    };
+    
     PublishSubscribe[PROTO] = {
         constructor: PublishSubscribe
         
@@ -886,10 +892,6 @@
             self._seps = null;
             self._pubsub$ = null;
             return self;
-        }
-        
-        ,Data: function( props ) {
-            return new PublishSubscribeData(props);
         }
         
         ,setSeparators: function( seps ) {
