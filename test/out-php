@@ -1,4 +1,4 @@
-PublishSubscribe.VERSION = 0.3.6
+PublishSubscribe.VERSION = 0.4
 Handler2
 Array
 (
@@ -24,7 +24,7 @@ Array
         (
         )
 
-    [timestamp] => 1419764992681
+    [timestamp] => 1421506416295
 )
 
 Array
@@ -57,7 +57,7 @@ Array
         (
         )
 
-    [timestamp] => 1419764992681
+    [timestamp] => 1421506416295
 )
 
 Array
@@ -91,7 +91,7 @@ Array
             [0] => NS1
         )
 
-    [timestamp] => 1419764992681
+    [timestamp] => 1421506416296
 )
 
 Array

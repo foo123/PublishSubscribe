@@ -23,30 +23,36 @@ else:
 
 print('PublishSubscribe.VERSION = ' + PublishSubscribe.VERSION + "\n")
 
-def _log( evt, data):
+def _log( evt):
     print( pprint.pformat({'topic': evt.topic, 'originalTopic': evt.originalTopic, 'tags': evt.tags, 'namespaces': evt.namespaces, 'timestamp': evt.timestamp}, 4) )
-    print( pprint.pformat(data, 4) )
+    print( pprint.pformat(evt.data['data'], 4) )
     
-def handler1(evt, data):
+def handler1(evt):
     print('Handler1' + "\n")
-    _log( evt, data)
+    _log( evt)
+    evt.next()
+    # event abort
+    #evt.abort( )
     # stop bubble propagation
     #evt.propagate( False )
     # stop propagation on same event
     #evt.stop( )
     #return False
 
-def handler2(evt, data):
+def handler2(evt):
     print('Handler2' + "\n")
-    _log( evt, data)
+    _log( evt)
+    evt.next()
 
-def handler3(evt, data):
+def handler3(evt):
     print('Handler3' + "\n")
-    _log( evt, data)
+    _log( evt)
+    evt.next()
 
-def handler4(evt, data):
+def handler4(evt):
     print('Handler4' + "\n")
-    _log( evt, data)
+    _log( evt)
+    evt.next()
 
 pb = PublishSubscribe( )
-pb.on('Topic1/SubTopic11#Tag1#Tag2', handler1).on1('Topic1/SubTopic11#Tag1#Tag2@NS1', handler2).on('Topic1/SubTopic11#Tag1#Tag2@NS1@NS2', handler3).off('@NS1@NS2').trigger('Topic1/SubTopic11#Tag2#Tag1', {'key1': 'value1'}).trigger('Topic1/SubTopic11#Tag2#Tag1@NS1', {'key1': 'value1'})
+pb.on('Topic1/SubTopic11#Tag1#Tag2', handler1).on1('Topic1/SubTopic11#Tag1#Tag2@NS1', handler2).on('Topic1/SubTopic11#Tag1#Tag2@NS1@NS2', handler3).off('@NS1@NS2').pipeline('Topic1/SubTopic11#Tag2#Tag1', {'key1': 'value1'}).pipeline('Topic1/SubTopic11#Tag2#Tag1@NS1', {'key1': 'value1'})

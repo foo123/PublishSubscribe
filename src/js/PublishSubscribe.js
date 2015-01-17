@@ -466,6 +466,7 @@
             if ( tl > 0 ) 
             {
                 evt = new PublishSubscribeEvent( target );
+                evt.data.data = data;
                 evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
             }
             
@@ -503,7 +504,7 @@
                     
                     subscriber[ 4 ] = 1; // subscriber called
                     
-                    res = subscriber[ 0 ]( evt, data );
+                    res = subscriber[ 0 ]( evt );
                     
                     // stop event propagation
                     if ( (false === res) || evt.stopped() || evt.aborted() ) break;
@@ -524,7 +525,7 @@
         }
     }
     
-    function create_pipeline_loop( evt, data, topics, abort )
+    function create_pipeline_loop( evt, topics, abort )
     {
         var topTopic = topics[ 0 ],
             namespaces = topics[ 2 ],
@@ -540,16 +541,26 @@
             'namespaces': namespaces,
             'nl': namespaces.length,
             'hasNamespace': false,
-            'data': data,
             'abort': abort
         };
         evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
         var pipeline_loop = function pipeline_loop( evt ) {
-            var res, non_local = evt.non_local, subTopic, tags, subscriber;
+            var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
+            
             if (non_local.t < non_local.tl)
             {
                 if (non_local.start_topic)
                 {
+                    // unsubscribeOneOffs
+                    unsubscribe_oneoffs( non_local.subscribers );
+                    
+                    // stop event propagation
+                    if ( evt.aborted() || !evt.propagates() ) 
+                    {
+                        if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt );
+                        return false;
+                    }
+                    
                     subTopic = non_local.topics[ non_local.t ][ 0 ];
                     tags = non_local.topics[ non_local.t ][ 1 ];
                     evt.topic = subTopic ? subTopic.split( OTOPIC_SEP ) : [ ];
@@ -560,49 +571,54 @@
                     non_local.s = 0;
                     non_local.start_topic = false;
                 }
-                if (!non_local.start_topic && non_local.s < non_local.sl)
+                
+                //if (non_local.subscribers) non_local.sl = non_local.subscribers.list.length;
+                if (non_local.s < non_local.sl)
                 {
-                    subscriber = non_local.subscribers.list[ non_local.s ];
-                    if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
-                        (!non_local.hasNamespace || 
-                        (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], non_local.namespaces, non_local.nl))) 
-                    ) 
+                    // stop event propagation
+                    if ( evt.aborted() || evt.stopped() ) 
+                    {
+                        // unsubscribeOneOffs
+                        unsubscribe_oneoffs( non_local.subscribers );
+                        
+                        if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt );
+                        return false;
+                    }
+                    
+                    done = false;
+                    while ( non_local.s < non_local.sl && !done )
+                    {
+                        subscriber = non_local.subscribers.list[ non_local.s ];
+                        if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
+                            (!non_local.hasNamespace || 
+                            (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], non_local.namespaces, non_local.nl))) 
+                        ) 
+                        {
+                            done = true;
+                        }
+                        non_local.s += 1;
+                    }
+                    if ( done )
                     {
                         if ( non_local.hasNamespace ) evt.namespaces = subscriber[ 3 ].slice( 0 );
                         else evt.namespaces = [ ];
                         
                         subscriber[ 4 ] = 1; // subscriber called
-                        
-                        res = subscriber[ 0 ]( evt, non_local.data );
-                        
-                        // stop event propagation
-                        if ( (false === res) || evt.stopped() || evt.aborted() ) 
-                        {
-                            // unsubscribeOneOffs
-                            unsubscribe_oneoffs( non_local.subscribers );
-                            if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt, non_local.data );
-                            return false;
-                        }
+                        res = subscriber[ 0 ]( evt );
                     }
-                    non_local.s += 1;
                 }
-                if (!non_local.start_topic && non_local.s >= non_local.sl)
+                
+                if (non_local.s >= non_local.sl)
                 {
-                    // unsubscribeOneOffs
-                    unsubscribe_oneoffs( non_local.subscribers );
-                    // stop event bubble propagation
-                    if ( evt.aborted() || !evt.propagates() ) 
-                    {
-                        if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt, non_local.data );
-                        return false;
-                    }
                     non_local.t += 1;
                     non_local.start_topic = true;
                 }
-                //pipeline_loop( evt );
             }
             else 
             {
+                // unsubscribeOneOffs
+                unsubscribe_oneoffs( non_local.subscribers );
+                
                 if ( evt )
                 {
                     evt.non_local = null;
@@ -622,7 +638,8 @@
             if ( topics[ 1 ].length > 0 ) 
             {
                 evt = new PublishSubscribeEvent( target );
-                evt.pipeline( pipeline_loop = create_pipeline_loop( evt, data, topics, abort ) );
+                evt.data.data = data;
+                evt.pipeline( pipeline_loop = create_pipeline_loop( evt, topics, abort ) );
                 pipeline_loop( evt );
             }
         }
@@ -916,13 +933,13 @@
             if ( delay > 0 )
             {
                 setTimeout(function( ) {
-                    pipeline( self, self._seps, self._pubsub$, message, data, abort );
+                    pipeline( self, self._seps, self._pubsub$, message, data, abort||null );
                 }, delay);
             }
             else
             {
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
-                pipeline( self, self._seps, self._pubsub$, message, data, abort );
+                pipeline( self, self._seps, self._pubsub$, message, data, abort||null );
                 //console.log(JSON.stringify(self._pubsub$, null, 4));
             }
             return self;

@@ -66,7 +66,7 @@ class PublishSubscribeEvent:
         return self
     
     def next( self ):
-        if callable(self._next): self._next()
+        if callable(self._next): self._next(self)
         return self
     
     def pipeline( self, next=None ):
@@ -294,6 +294,7 @@ def publish( target, seps, pubsub, topic, data ):
         
         if tl > 0:
             evt = PublishSubscribeEvent( target )
+            evt.data['data'] = data
             evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
             
         for t in topics:
@@ -320,7 +321,7 @@ def publish( target, seps, pubsub, topic, data ):
                 
                 subscriber[ 4 ] = 1 # subscriber called
                 
-                res = subscriber[ 0 ]( evt, data )
+                res = subscriber[ 0 ]( evt )
                 
                 # stop event propagation
                 if (False == res) or evt.stopped() or evt.aborted(): break
@@ -337,7 +338,7 @@ def publish( target, seps, pubsub, topic, data ):
         
 
 
-def create_pipeline_loop(evt, data, topics, abort):
+def create_pipeline_loop(evt, topics, abort):
     topTopic = topics[ 0 ]
     namespaces = topics[ 2 ]
     topics = topics[ 1 ]
@@ -351,16 +352,24 @@ def create_pipeline_loop(evt, data, topics, abort):
         'topics': topics,
         'namespaces': namespaces,
         'hasNamespace': False,
-        'data': data,
         'abort': abort
     }
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
     def pipeline_loop( evt ):
         non_local = evt.non_local
-        data = non_local['data']
+        
         if non_local['t'] < non_local['tl']:
             if non_local['start_topic']:
+                
+                # unsubscribeOneOffs
+                unsubscribe_oneoffs( non_local['subscribers'] )
+                
+                # stop event propagation
+                if evt.aborted() or not evt.propagates():
+                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt )
+                    return False
+                    
                 subTopic = non_local['topics'][non_local['t']][ 0 ]
                 tags = non_local['topics'][non_local['t']][ 1 ]
                 evt.topic = subTopic.split(OTOPIC_SEP) if subTopic else []
@@ -368,42 +377,44 @@ def create_pipeline_loop(evt, data, topics, abort):
                 non_local['hasNamespace'] = non_local['topics'][non_local['t']][ 2 ]
                 non_local['subscribers'] = non_local['topics'][non_local['t']][ 3 ]
                 non_local['s'] = 0
-                non_local['sl'] = len(non_local['subscribers'])
+                non_local['sl'] = len(non_local['subscribers']['list'])
                 non_local['start_topic'] = False
-            if not non_local['start_topic'] and non_local['s']<non_local['sl']:
+            
+            #if non_local['subscribers']: non_local['sl'] = len(non_local['subscribers']['list'])
+            if non_local['s']<non_local['sl']:
                 
-                subscriber = non_local['subscribers']['list'][ non_local['s'] ]
-                
-                if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not non_local['hasNamespace']) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], non_local['namespaces']))):
+                # stop event propagation
+                if evt.aborted() or evt.stopped():
+                    # unsubscribeOneOffs
+                    unsubscribe_oneoffs( non_local['subscribers'] )
                     
+                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt )
+                    return False
+                    
+                done = False
+                while non_local['s']<non_local['sl'] and not done:
+                    subscriber = non_local['subscribers']['list'][ non_local['s'] ]
+                    
+                    if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not non_local['hasNamespace']) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], non_local['namespaces']))):
+                        
+                        done = True
+                    
+                    non_local['s'] += 1
+                if done:
                     if non_local['hasNamespace']: evt.namespaces = subscriber[ 3 ][:]
                     else: evt.namespaces = []
                     
                     subscriber[ 4 ] = 1 # subscriber called
+                    res = subscriber[ 0 ]( evt )
                     
-                    res = subscriber[ 0 ]( evt, data )
-                    
-                    # stop event propagation
-                    if (False == res) or evt.stopped() or evt.aborted():
-                        # unsubscribeOneOffs
-                        unsubscribe_oneoffs( non_local['subscribers'] )
-                        if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt, non_local['data'] )
-                        return False
-                
-                non_local['s'] += 1
-                    
-            if not non_local['start_topic'] and non_local['s']>=non_local['sl']:
-                # unsubscribeOneOffs
-                unsubscribe_oneoffs( non_local['subscribers'] )
-                # stop event bubble propagation
-                if evt.aborted() or not evt.propagates(): 
-                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt, non_local['data'] )
-                    return False
+            if non_local['s']>=non_local['sl']:
                 non_local['t'] += 1
                 non_local['start_topic'] = True
             
-            #pipeline_loop( evt )
         else:
+            # unsubscribeOneOffs
+            unsubscribe_oneoffs( non_local['subscribers'] )
+            
             if evt:
                 evt.non_local = None
                 evt.dispose( )
@@ -418,7 +429,8 @@ def pipeline( target, seps, pubsub, topic, data, abort=None ):
         
         if len(topics[ 1 ]) > 0:
             evt = PublishSubscribeEvent( target )
-            pipeline_loop = create_pipeline_loop(evt, data, topics, abort)
+            evt.data['data'] = data
+            pipeline_loop = create_pipeline_loop(evt, topics, abort)
             evt.pipeline( pipeline_loop )
             pipeline_loop( evt )
         

@@ -1,22 +1,22 @@
-PublishSubscribe.VERSION = 0.3.6
+PublishSubscribe.VERSION = 0.4
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [],
-  timestamp: 1419764965514 }
+  timestamp: 1421506420569 }
 { key1: 'value1' }
 Handler1
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [],
-  timestamp: 1419764965514 }
+  timestamp: 1421506420569 }
 { key1: 'value1' }
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [ 'NS1' ],
-  timestamp: 1419764965517 }
+  timestamp: 1421506420571 }
 { key1: 'value1' }
