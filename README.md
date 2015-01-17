@@ -111,9 +111,9 @@ var handler1 = function(evt){
     //evt.stop( );
     //return false;
 };
-var handler2 = function(evt, data){
+var handler2 = function(evt){
     console.log('Handler2');
-    _log(evt, data);
+    _log(evt);
 };
 var handler3 = function(evt){
     console.log('Handler3');
