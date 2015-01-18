@@ -4,19 +4,19 @@ Handler2
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [],
-  timestamp: 1421507962392 }
+  timestamp: 1421616838138 }
 { key1: 'value1' }
 Handler1
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [],
-  timestamp: 1421507962392 }
+  timestamp: 1421616838138 }
 { key1: 'value1' }
 Handler2
 { topic: [ 'Topic1', 'SubTopic11' ],
   originalTopic: [ 'Topic1', 'SubTopic11' ],
   tags: [ 'Tag1', 'Tag2' ],
   namespaces: [ 'NS1' ],
-  timestamp: 1421507962394 }
+  timestamp: 1421616838141 }
 { key1: 'value1' }

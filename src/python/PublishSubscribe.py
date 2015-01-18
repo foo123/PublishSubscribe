@@ -42,7 +42,7 @@ class PublishSubscribeEvent:
         else: self.tags = []
         if namespaces: self.namespaces = namespaces
         else: self.namespaces = []
-        self.data = {}
+        self.data = PublishSubscribeData()
         self.timestamp = int(round(time.time() * 1000))
         self._propagates = True
         self._stopped = False
@@ -56,6 +56,7 @@ class PublishSubscribeEvent:
         self.originalTopic = None
         self.tags = None
         self.namespaces = None
+        if isinstance(self.data, PublishSubscribeData): seld.data.dispose()
         self.data = None
         self.timestamp = None
         self.is_pipelined = False
@@ -294,7 +295,7 @@ def publish( target, seps, pubsub, topic, data ):
         
         if tl > 0:
             evt = PublishSubscribeEvent( target )
-            evt.data['data'] = data
+            evt.data.data = data
             evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
             
         for t in topics:
@@ -342,82 +343,80 @@ def create_pipeline_loop(evt, topics, abort):
     topTopic = topics[ 0 ]
     namespaces = topics[ 2 ]
     topics = topics[ 1 ]
-    evt.non_local = {
+    evt.non_local = PublishSubscribeData({
         't': 0,
         's': 0,
         'start_topic': True,
-        'tl': len(topics),
-        'sl': 0,
         'subscribers': None,
         'topics': topics,
         'namespaces': namespaces,
         'hasNamespace': False,
         'abort': abort
-    }
+    })
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
     def pipeline_loop( evt ):
         non_local = evt.non_local
         
-        if non_local['t'] < non_local['tl']:
-            if non_local['start_topic']:
+        if non_local.t < len(non_local.topics):
+            if non_local.start_topic:
                 
                 # unsubscribeOneOffs
-                unsubscribe_oneoffs( non_local['subscribers'] )
+                unsubscribe_oneoffs( non_local.subscribers )
                 
                 # stop event propagation
                 if evt.aborted() or not evt.propagates():
-                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt )
+                    if evt.aborted() and callable(non_local.abort): non_local.abort( evt )
                     return False
                     
-                subTopic = non_local['topics'][non_local['t']][ 0 ]
-                tags = non_local['topics'][non_local['t']][ 1 ]
+                subTopic = non_local.topics[non_local.t][ 0 ]
+                tags = non_local.topics[non_local.t][ 1 ]
                 evt.topic = subTopic.split(OTOPIC_SEP) if subTopic else []
                 evt.tags = tags.split(OTAG_SEP) if tags else []
-                non_local['hasNamespace'] = non_local['topics'][non_local['t']][ 2 ]
-                non_local['subscribers'] = non_local['topics'][non_local['t']][ 3 ]
-                non_local['s'] = 0
-                non_local['sl'] = len(non_local['subscribers']['list'])
-                non_local['start_topic'] = False
+                non_local.hasNamespace = non_local.topics[non_local.t][ 2 ]
+                non_local.subscribers = non_local.topics[non_local.t][ 3 ]
+                non_local.s = 0
+                non_local.start_topic = False
             
             #if non_local['subscribers']: non_local['sl'] = len(non_local['subscribers']['list'])
-            if non_local['s']<non_local['sl']:
+            if non_local.s<len(non_local.subscribers['list']):
                 
                 # stop event propagation
                 if evt.aborted() or evt.stopped():
                     # unsubscribeOneOffs
-                    unsubscribe_oneoffs( non_local['subscribers'] )
+                    unsubscribe_oneoffs( non_local.subscribers )
                     
-                    if evt.aborted() and callable(non_local['abort']): non_local['abort']( evt )
+                    if evt.aborted() and callable(non_local.abort): non_local.abort( evt )
                     return False
                     
                 done = False
-                while non_local['s']<non_local['sl'] and not done:
-                    subscriber = non_local['subscribers']['list'][ non_local['s'] ]
+                while non_local.s<len(non_local.subscribers['list']) and not done:
+                    subscriber = non_local.subscribers['list'][ non_local.s ]
                     
-                    if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not non_local['hasNamespace']) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], non_local['namespaces']))):
+                    if ((not subscriber[ 1 ]) or (not subscriber[ 4 ])) and ((not non_local.hasNamespace) or (subscriber[ 2 ] and match_namespace(subscriber[ 2 ], non_local.namespaces))):
                         
                         done = True
                     
-                    non_local['s'] += 1
+                    non_local.s += 1
                 if done:
-                    if non_local['hasNamespace']: evt.namespaces = subscriber[ 3 ][:]
+                    if non_local.hasNamespace: evt.namespaces = subscriber[ 3 ][:]
                     else: evt.namespaces = []
                     
                     subscriber[ 4 ] = 1 # subscriber called
                     res = subscriber[ 0 ]( evt )
                     
-            if non_local['s']>=non_local['sl']:
-                non_local['t'] += 1
-                non_local['start_topic'] = True
+            if non_local.s>=len(non_local.subscribers['list']):
+                non_local.t += 1
+                non_local.start_topic = True
             
         else:
             # unsubscribeOneOffs
-            unsubscribe_oneoffs( non_local['subscribers'] )
+            unsubscribe_oneoffs( non_local.subscribers )
             
             if evt:
+                evt.non_local.dispose()
                 evt.non_local = None
-                evt.dispose( )
+                evt.dispose()
                 evt = None
     
     return pipeline_loop
@@ -429,7 +428,7 @@ def pipeline( target, seps, pubsub, topic, data, abort=None ):
         
         if len(topics[ 1 ]) > 0:
             evt = PublishSubscribeEvent( target )
-            evt.data['data'] = data
+            evt.data.data = data
             pipeline_loop = create_pipeline_loop(evt, topics, abort)
             evt.pipeline( pipeline_loop )
             pipeline_loop( evt )

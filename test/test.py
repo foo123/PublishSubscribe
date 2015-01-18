@@ -25,7 +25,7 @@ print('PublishSubscribe.VERSION = ' + PublishSubscribe.VERSION + "\n")
 
 def _log( evt):
     print( pprint.pformat({'topic': evt.topic, 'originalTopic': evt.originalTopic, 'tags': evt.tags, 'namespaces': evt.namespaces, 'timestamp': evt.timestamp}, 4) )
-    print( pprint.pformat(evt.data['data'], 4) )
+    print( pprint.pformat(evt.data.data, 4) )
     
 def handler1(evt):
     print('Handler1' + "\n")

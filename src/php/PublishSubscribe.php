@@ -71,7 +71,7 @@ class PublishSubscribeEvent
         else $this->tags = array();
         if ( $namespaces )  $this->namespaces = (array)$namespaces;
         else  $this->namespaces = array();
-        $this->data = array();
+        $this->data = new PublishSubscribeData();
         $this->timestamp = round(microtime(true) * 1000);
         $this->_propagates = true;
         $this->_stopped = false;
@@ -85,6 +85,7 @@ class PublishSubscribeEvent
         $this->originalTopic = null;
         $this->tags = null;
         $this->namespaces = null;
+        if ($this->data instanceof PublishSubscribeData) $this->data->dispose();
         $this->data = null;
         $this->timestamp = null;
         $this->is_pipelined = false;
@@ -435,7 +436,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             if ( !empty($topics) )
             {
                 $evt = new PublishSubscribeEvent( $target );
-                $evt->data['data'] =& $data;
+                $evt->data->data =& $data;
                 if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
                 else $evt->originalTopic = array( );
             }
@@ -474,7 +475,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                     
                     $subscriber[ 4 ] = 1; // subscriber called
                     
-                    $res = call_user_func( $subscriber[ 0 ], $evt, $data );
+                    $res = call_user_func( $subscriber[ 0 ], $evt );
                     
                     // stop event propagation
                     if ( (false === $res) || $evt->stopped() || $evt->aborted() ) break;
@@ -500,18 +501,16 @@ class PublishSubscribe implements PublishSubscribeInterface
         $topTopic = $topics[ 0 ];
         $namespaces = $topics[ 2 ];
         $topics = $topics[ 1 ];
-        $evt->non_local = (object)array(
-        'start_topic' => true,
+        $evt->non_local = new PublishSubscribeData(array(
         't' => 0,
         's' => 0,
-        'tl' => count($topics),
-        'sl' => 0,
+        'start_topic' => true,
         'subscribers' => null,
         'topics' =>& $topics,
         'namespaces' =>& $namespaces,
         'hasNamespace' => false,
         'abort'=> $abort
-        );
+        ));
         
         if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
         else $evt->originalTopic = array( );
@@ -523,7 +522,7 @@ class PublishSubscribe implements PublishSubscribeInterface
     {
         $non_local =& $evt->non_local;
         
-        if ($non_local->t < $non_local->tl)
+        if ($non_local->t < count($non_local->topics))
         {
             if ($non_local->start_topic)
             {
@@ -547,12 +546,11 @@ class PublishSubscribe implements PublishSubscribeInterface
                 $non_local->hasNamespace = $non_local->topics[$non_local->t][ 2 ];
                 $non_local->subscribers =& $non_local->topics[$non_local->t][ 3 ];
                 $non_local->s = 0;
-                $non_local->sl = count($non_local->subscribers['list']);
                 $non_local->start_topic = false;
             }
             
             //if ($non_local->subscribers) $non_local->sl = count($non_local->subscribers['list']);
-            if ($non_local->s<$non_local->sl)
+            if ($non_local->s<count($non_local->subscribers['list']))
             {
                 // stop event bubble propagation
                 if ( $evt->aborted() || $evt->stopped() )
@@ -566,7 +564,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                 }
                 
                 $done = false;
-                while ($non_local->s<$non_local->sl && !$done)
+                while ($non_local->s<count($non_local->subscribers['list']) && !$done)
                 {
                     $subscriber =& $non_local->subscribers['list'][ $non_local->s ];
                     
@@ -589,7 +587,7 @@ class PublishSubscribe implements PublishSubscribeInterface
                 }
             }        
             
-            if ($non_local->s>=$non_local->sl)
+            if ($non_local->s>=count($non_local->subscribers['list']))
             {
                 $non_local->t += 1;
                 $non_local->start_topic = true;
@@ -602,8 +600,9 @@ class PublishSubscribe implements PublishSubscribeInterface
             
             if ( $evt )
             {
+                $evt->non_local->dispose();
                 $evt->non_local = null;
-                $evt->dispose( );
+                $evt->dispose();
                 $evt = null;
             }
         }
@@ -619,7 +618,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             if ( !empty($topics[ 1 ]) )
             {
                 $evt = new PublishSubscribeEvent( $target );
-                $evt->data['data'] =& $data;
+                $evt->data->data =& $data;
                 $evt->pipeline( self::create_pipeline_loop($evt, $topics, $abort) );
                 self::pipeline_loop( $evt );
             }

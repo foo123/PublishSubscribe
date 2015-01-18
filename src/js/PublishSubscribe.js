@@ -77,7 +77,7 @@
         else self.tags = [ ];
         if ( namespaces )  self.namespaces = [].concat( namespaces );
         else self.namespaces = [ ];
-        self.data = { };
+        self.data = new PublishSubscribeData();
         self.timestamp = NOW( );
         self._propagates = true;
         self._stopped = false;
@@ -105,6 +105,7 @@
             self.originalTopic = null;
             self.tags = null;
             self.namespaces = null;
+            if (self.data instanceof PublishSubscribeData) self.data.dispose();
             self.data = null;
             self.timestamp = null;
             self.is_pipelined = false;
@@ -530,24 +531,21 @@
         var topTopic = topics[ 0 ],
             namespaces = topics[ 2 ],
             topics = topics[ 1 ];
-        evt.non_local = {
+        evt.non_local = new PublishSubscribeData({
             't': 0,
             's': 0,
             'start_topic': true,
-            'tl': topics.length,
-            'sl': 0,
             'subscribers': null,
             'topics': topics,
             'namespaces': namespaces,
-            'nl': namespaces.length,
             'hasNamespace': false,
             'abort': abort
-        };
+        });
         evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
         var pipeline_loop = function pipeline_loop( evt ) {
             var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
             
-            if (non_local.t < non_local.tl)
+            if (non_local.t < non_local.topics.length)
             {
                 if (non_local.start_topic)
                 {
@@ -567,13 +565,12 @@
                     evt.tags = tags ? tags.split( OTAG_SEP ) : [ ];
                     non_local.hasNamespace = non_local.topics[ non_local.t ][ 2 ];
                     non_local.subscribers = non_local.topics[ non_local.t ][ 3 ];
-                    non_local.sl = non_local.subscribers.list.length;
                     non_local.s = 0;
                     non_local.start_topic = false;
                 }
                 
                 //if (non_local.subscribers) non_local.sl = non_local.subscribers.list.length;
-                if (non_local.s < non_local.sl)
+                if (non_local.s < non_local.subscribers.list.length)
                 {
                     // stop event propagation
                     if ( evt.aborted() || evt.stopped() ) 
@@ -586,12 +583,12 @@
                     }
                     
                     done = false;
-                    while ( non_local.s < non_local.sl && !done )
+                    while ( non_local.s < non_local.subscribers.list.length && !done )
                     {
                         subscriber = non_local.subscribers.list[ non_local.s ];
                         if ( (!subscriber[ 1 ] || !subscriber[ 4 ]) && 
                             (!non_local.hasNamespace || 
-                            (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], non_local.namespaces, non_local.nl))) 
+                            (subscriber[ 2 ] && match_namespace(subscriber[ 2 ], non_local.namespaces, non_local.namespaces.length))) 
                         ) 
                         {
                             done = true;
@@ -608,7 +605,7 @@
                     }
                 }
                 
-                if (non_local.s >= non_local.sl)
+                if (non_local.s >= non_local.subscribers.list.length)
                 {
                     non_local.t += 1;
                     non_local.start_topic = true;
@@ -621,8 +618,9 @@
                 
                 if ( evt )
                 {
+                    evt.non_local.dispose();
                     evt.non_local = null;
-                    evt.dispose( );
+                    evt.dispose();
                     evt = null;
                 }
             }

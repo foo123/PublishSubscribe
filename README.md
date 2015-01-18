@@ -78,7 +78,9 @@ pb.off( topic_with_tags_namespaces [, handlerFunc=null ] );
 pb.trigger( topic_with_tags_namespaces, data );
 
 // pipeline allows to call subscribers (of given topic/message) asynchronously via a pipeline
-pb.pipeline( topic_with_tags_namespaces, data );
+// each subscriber calls nect subscriber via the (passed) event's .next() method
+// pipeline can be aborted via the (passed) event's .abort() method
+pb.pipeline( topic_with_tags_namespaces, data [, abort_callback] );
 
 // dispose PublishSubscribe instance
 pb.disposePubSub( );
@@ -97,7 +99,7 @@ console.log('PublishSubscribe.VERSION = ' + PublishSubscribe.VERSION);
 function _log(evt)
 {
     console.log({topic: evt.topic, originalTopic: evt.originalTopic, tags: evt.tags, namespaces: evt.namespaces, timestamp: evt.timestamp});
-    console.log(evt.data['data']);
+    console.log(evt.data.data);
 }
 
 var handler1 = function(evt){
