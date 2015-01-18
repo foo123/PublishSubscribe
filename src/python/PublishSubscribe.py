@@ -56,7 +56,7 @@ class PublishSubscribeEvent:
         self.originalTopic = None
         self.tags = None
         self.namespaces = None
-        if isinstance(self.data, PublishSubscribeData): seld.data.dispose()
+        if isinstance(self.data, PublishSubscribeData): self.data.dispose()
         self.data = None
         self.timestamp = None
         self.is_pipelined = False
