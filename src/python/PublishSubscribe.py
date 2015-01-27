@@ -24,6 +24,9 @@ class PublishSubscribeData:
         if props:
             for k,v in props.items(): setattr(self, k, v)
     
+    def __del__(self):
+        self.dispose()
+        
     def dispose(self, props=None):
         if props:
             for k in props: setattr(self, k, None)
@@ -50,6 +53,9 @@ class PublishSubscribeEvent:
         self.is_pipelined = False
         self._next = None
     
+    def __del__(self):
+        self.dispose()
+        
     def dispose( self ):
         self.target = None
         self.topic = None
@@ -597,6 +603,9 @@ class PublishSubscribe:
     def __init__( self ):
         self.initPubSub( )
     
+    def __del__(self):
+        self.disposePubSub()
+        
     def initPubSub( self ):
         self._seps = [TOPIC_SEP, TAG_SEP, NS_SEP]
         self._pubsub = get_pubsub( )

@@ -32,6 +32,11 @@ class PublishSubscribeData
         }
     }
     
+    public function __destruct()
+    {
+        $this->dispose();
+    }
+    
     public function dispose($props=null)
     {
         if ( $props )
@@ -76,6 +81,11 @@ class PublishSubscribeEvent
         $this->_propagates = true;
         $this->_stopped = false;
         $this->_aborted = false;
+    }
+    
+    public function __destruct()
+    {
+        $this->dispose();
     }
     
     public function dispose( ) 
@@ -846,6 +856,11 @@ class PublishSubscribe implements PublishSubscribeInterface
         $this->initPubSub( ); 
     }
         
+    public function __destruct()
+    {
+        $this->disposePubSub();
+    }
+    
     public function initPubSub( ) 
     {
         $this->_seps = array(self::TOPIC_SEP, self::TAG_SEP, self::NS_SEP);
