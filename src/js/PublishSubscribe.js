@@ -425,7 +425,7 @@
         if ( subscribers && subscribers[HAS]("list") )
         {
             // unsubscribeOneOffs
-            var s, sl, subs;
+            var s, sl, subs, subscriber;
             if ( (subs=subscribers.list) && (sl=subs.length) )
             {
                 if ( subscribers.oneOffs > 0 )
