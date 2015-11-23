@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.4
+#  @version: 0.4.1
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -592,7 +592,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.4"
+    VERSION = "0.4.1"
     
     Event = PublishSubscribeEvent
     

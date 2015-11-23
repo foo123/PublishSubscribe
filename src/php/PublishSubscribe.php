@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 0.4
+*  @version: 0.4.1
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -163,7 +163,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "0.4";
+    const VERSION = "0.4.1";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';
