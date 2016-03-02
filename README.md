@@ -6,6 +6,9 @@ A simple and flexible publish-subscribe pattern implementation for PHP, Python, 
 Supports *nested* topics, *tagged* topics and *namespaced* topics.
 
 
+* `PublishSubscribe` is also a `XPCOM JavaScript Component` (Firefox) (e.g to be used in firefox browser addons/plugins)
+
+
 [PublishSubscribe.js](https://raw.githubusercontent.com/foo123/PublishSubscribe/master/src/js/PublishSubscribe.js),  [PublishSubscribe.min.js](https://raw.githubusercontent.com/foo123/PublishSubscribe/master/src/js/PublishSubscribe.min.js)
 
 
