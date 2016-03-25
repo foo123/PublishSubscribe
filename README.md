@@ -1,7 +1,7 @@
 PublishSubscribe
 ================
 
-A simple and flexible publish-subscribe pattern implementation for PHP, Python, Node/JS, ActionScript(TODO)
+A simple and flexible publish-subscribe pattern implementation for PHP, Python, Node/XPCOM/JS, ActionScript(TODO)
 
 
 ![PublishSubscribe](/publishsubscribe.jpg)
