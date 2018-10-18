@@ -89,7 +89,7 @@ pb.off( topic_with_tags_namespaces [, handlerFunc=null ] );
 pb.trigger( topic_with_tags_namespaces, data );
 
 // pipeline allows to call subscribers (of given topic/message) asynchronously via a pipeline
-// each subscriber calls nect subscriber via the (passed) event's .next() method
+// each subscriber calls next subscriber via the (passed) event's .next() method
 // pipeline can be aborted via the (passed) event's .abort() method
 pb.pipeline( topic_with_tags_namespaces, data [, abort_callback] );
 

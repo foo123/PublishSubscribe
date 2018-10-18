@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/XPCOM/JS
 *
-*  @version: 0.4.1
+*  @version: 0.4.2
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -23,8 +23,8 @@ else if ( !(name in root) ) /* Browser/WebWorker/.. */
     /* module factory */        function ModuleFactory__PublishSubscribe( undef ){
 "use strict";
 
-var __version__ = "0.4.1", 
-    PROTO = 'prototype', HAS = 'hasOwnProperty',
+var __version__ = "0.4.2", 
+    PROTO = 'prototype', HAS = Object[PROTO].hasOwnProperty,
     TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
     OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
     KEYS = Object.keys,
@@ -37,7 +37,7 @@ function PublishSubscribeData( props )
     {
         for (var k in props)
         {
-            if ( props[HAS](k) )
+            if ( HAS.call(props,k) )
                 this[ k ] = props[ k ];
         }
     }
@@ -266,7 +266,7 @@ function update_namespaces( pbns, namespaces, nl )
     for (n=0; n<nl; n++)
     {
         ns = 'ns_' + namespaces[n];
-        if ( !pbns[HAS](ns) )
+        if ( !HAS.call(pbns,ns) )
         {
             pbns[ ns ] = 1;
         }
@@ -283,7 +283,7 @@ function remove_namespaces( pbns, namespaces, nl )
     for (n=0; n<nl; n++)
     {
         ns = 'ns_' + namespaces[n];
-        if ( pbns[HAS](ns) )
+        if ( HAS.call(pbns,ns) )
         {
             pbns[ ns ]--;
             if ( pbns[ ns ] <=0 ) delete pbns[ ns ];
@@ -297,7 +297,7 @@ function match_namespace( pbns, namespaces, nl )
     for (n=0; n<nl; n++)
     {
         ns = 'ns_' + namespaces[n];
-        if ( !pbns[HAS](ns) || (0 >= pbns[ ns ]) ) return false;
+        if ( !HAS.call(pbns,ns) || (0 >= pbns[ ns ]) ) return false;
     }
     return true;
 }
@@ -307,9 +307,9 @@ function check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, 
     var _topic = !!topic ? 'tp_' + topic : false, 
         _tag = !!tag ? 'tg_' + tag : false;
         
-    if ( _topic && pubsub.topics[HAS](_topic) )
+    if ( _topic && HAS.call(pubsub.topics,_topic) )
     {
-        if ( _tag && pubsub.topics[ _topic ].tags[HAS](_tag) )
+        if ( _tag && HAS.call(pubsub.topics[ _topic ].tags,_tag) )
         {
             if ( pubsub.topics[ _topic ].tags[ _tag ].list.length &&
                 (nl <= 0 || match_namespace( pubsub.topics[ _topic ].tags[ _tag ].namespaces, namespaces, nl )) )
@@ -330,7 +330,7 @@ function check_is_subscribed( pubsub, subscribedTopics, topic, tag, namespaces, 
     }
     else
     {
-        if ( _tag && pubsub.notopics.tags[HAS](_tag) )
+        if ( _tag && HAS.call(pubsub.notopics.tags,_tag) )
         {
             if ( pubsub.notopics.tags[ _tag ].list.length &&
                 (nl <= 0 || match_namespace( pubsub.notopics.tags[ _tag ].namespaces, namespaces, nl )) )
@@ -370,7 +370,7 @@ function get_subscribed_topics( seps, pubsub, atopic )
         while ( l )
         {
             topic = topics[ 0 ]; //_topic = 'tp_' + topic;
-            if ( pubsub.topics[HAS]( 'tp_' + topic ) ) 
+            if ( HAS.call(pubsub.topics, 'tp_' + topic) ) 
             {
                 if ( tl > 0 )
                 {
@@ -412,7 +412,7 @@ function get_subscribed_topics( seps, pubsub, atopic )
 
 function unsubscribe_oneoffs( subscribers )
 {
-    if ( subscribers && subscribers[HAS]("list") )
+    if ( subscribers && HAS.call(subscribers,"list") )
     {
         // unsubscribeOneOffs
         var s, sl, subs, subscriber;
@@ -659,13 +659,13 @@ function subscribe( seps, pubsub, topic, subscriber, oneOff, on1 )
         if ( topic.length )
         {
             _topic = 'tp_' + topic;
-            if ( !pubsub.topics[HAS](_topic) ) 
+            if ( !HAS.call(pubsub.topics,_topic) ) 
                 pubsub.topics[ _topic ] = { notags: {namespaces: {}, list: [], oneOffs: 0}, tags: {} };
             
             if ( tagslen )
             {
                 _tag = 'tg_' + tags;
-                if ( !pubsub.topics[ _topic ].tags[HAS](_tag) ) 
+                if ( !HAS.call(pubsub.topics[ _topic ].tags,_tag) ) 
                     pubsub.topics[ _topic ].tags[ _tag ] = {namespaces: {}, list: [], oneOffs: 0};
                 
                 queue = pubsub.topics[ _topic ].tags[ _tag ];
@@ -680,7 +680,7 @@ function subscribe( seps, pubsub, topic, subscriber, oneOff, on1 )
             if ( tagslen )
             {
                 _tag = 'tg_' + tags;
-                if ( !pubsub.notopics.tags[HAS](_tag) ) 
+                if ( !HAS.call(pubsub.notopics.tags,_tag) ) 
                     pubsub.notopics.tags[ _tag ] = {namespaces: {}, list: [], oneOffs: 0};
                 
                 queue = pubsub.notopics.tags[ _tag ];
@@ -773,9 +773,9 @@ function unsubscribe( seps, pubsub, topic, subscriber )
         hasSubscriber = !!(subscriber && ("function" === typeof( subscriber )));
         if ( !hasSubscriber ) subscriber = null;
         
-        if ( topiclen && pubsub.topics[HAS](_topic) )
+        if ( topiclen && HAS.call(pubsub.topics,_topic) )
         {
-            if ( tagslen && pubsub.topics[ _topic ].tags[HAS](_tag) ) 
+            if ( tagslen && HAS.call(pubsub.topics[ _topic ].tags,_tag) ) 
             {
                 remove_subscriber( pubsub.topics[ _topic ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                 if ( !pubsub.topics[ _topic ].tags[ _tag ].list.length )
@@ -792,7 +792,7 @@ function unsubscribe( seps, pubsub, topic, subscriber )
         {
             if ( tagslen )
             {
-                if ( pubsub.notopics.tags[HAS](_tag) )
+                if ( HAS.call(pubsub.notopics.tags,_tag) )
                 {
                     remove_subscriber( pubsub.notopics.tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                     if ( !pubsub.notopics.tags[ _tag ].list.length )
@@ -802,7 +802,7 @@ function unsubscribe( seps, pubsub, topic, subscriber )
                 // remove from any topics as well
                 for ( t in pubsub.topics )
                 {
-                    if ( pubsub.topics[HAS](t) && pubsub.topics[ t ].tags[HAS](_tag) )
+                    if ( HAS.call(pubsub.topics,t) && HAS.call(pubsub.topics[ t ].tags,_tag) )
                     {
                         remove_subscriber( pubsub.topics[ t ].tags[ _tag ], hasSubscriber, subscriber, namespaces, nslen );
                         if ( !pubsub.topics[ t ].tags[ _tag ].list.length )
@@ -817,7 +817,7 @@ function unsubscribe( seps, pubsub, topic, subscriber )
                 // remove from any tags as well
                 for ( t2 in pubsub.notopics.tags )
                 {
-                    if ( pubsub.notopics.tags[HAS](t2) )
+                    if ( HAS.call(pubsub.notopics.tags,t2) )
                     {
                         remove_subscriber( pubsub.notopics.tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
                         if ( !pubsub.notopics.tags[ t2 ].list.length )
@@ -828,13 +828,13 @@ function unsubscribe( seps, pubsub, topic, subscriber )
                 // remove from any topics and tags as well
                 for ( t in pubsub.topics )
                 {
-                    if ( pubsub.topics[HAS](t) )
+                    if ( HAS.call(pubsub.topics,t) )
                     {
                         remove_subscriber( pubsub.topics[ t ].notags, hasSubscriber, subscriber, namespaces, nslen );
                         
                         for ( t2 in pubsub.topics[ t ].tags )
                         {
-                            if ( pubsub.topics[ t ].tags[HAS](t2) )
+                            if ( HAS.call(pubsub.topics[ t ].tags,t2) )
                             {
                                 remove_subscriber( pubsub.topics[ t ].tags[ t2 ], hasSubscriber, subscriber, namespaces, nslen );
                                 if ( !pubsub.topics[ t ].tags[ t2 ].list.length )
