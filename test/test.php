@@ -6,7 +6,7 @@ echo('PublishSubscribe.VERSION = ' . PublishSubscribe::VERSION . PHP_EOL);
 function _log(&$evt)
 {
     echo(print_r(array('topic'=>$evt->topic, 'originalTopic'=>$evt->originalTopic, 'tags'=>$evt->tags, 'namespaces'=>$evt->namespaces, 'timestamp'=>$evt->timestamp), true). PHP_EOL);
-    echo(print_r($evt->data->data, true). PHP_EOL);
+    echo(print_r($evt->data, true). PHP_EOL);
 }
 
 function handler1($evt)

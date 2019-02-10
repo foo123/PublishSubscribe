@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/XPCOM/JS
 *
-*  @version: 0.4.2
+*  @version: 1.0.0
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -23,7 +23,7 @@ else if ( !(name in root) ) /* Browser/WebWorker/.. */
     /* module factory */        function ModuleFactory__PublishSubscribe( undef ){
 "use strict";
 
-var __version__ = "0.4.2", 
+var __version__ = "1.0.0", 
     PROTO = 'prototype', HAS = Object[PROTO].hasOwnProperty,
     TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
     OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
@@ -67,7 +67,7 @@ function PublishSubscribeEvent(target, topic, original, tags, namespaces)
     else self.tags = [ ];
     if ( namespaces )  self.namespaces = [].concat( namespaces );
     else self.namespaces = [ ];
-    self.data = new PublishSubscribeData();
+    self.data = null;//new PublishSubscribeData();
     self.timestamp = NOW( );
     self._propagates = true;
     self._stopped = false;
@@ -457,7 +457,7 @@ function publish( target, seps, pubsub, topic, data )
         if ( tl > 0 ) 
         {
             evt = new PublishSubscribeEvent( target );
-            evt.data.data = data;
+            evt.data = data;
             evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
         }
         
@@ -626,7 +626,7 @@ function pipeline( target, seps, pubsub, topic, data, abort )
         if ( topics[ 1 ].length > 0 ) 
         {
             evt = new PublishSubscribeEvent( target );
-            evt.data.data = data;
+            evt.data = data;
             evt.pipeline( pipeline_loop = create_pipeline_loop( evt, topics, abort ) );
             pipeline_loop( evt );
         }
@@ -898,7 +898,7 @@ PublishSubscribe[PROTO] = {
         if ( 3 > arguments.length ) delay = 0;
         delay = +delay;
         
-        data = data || { };
+        if ( 2 > arguments.length ) data = { };
         if ( delay > 0 )
         {
             setTimeout(function( ) {
@@ -919,7 +919,7 @@ PublishSubscribe[PROTO] = {
         if ( 4 > arguments.length ) delay = 0;
         delay = +delay;
         
-        data = data || { };
+        if ( 2 > arguments.length ) data = { };
         if ( delay > 0 )
         {
             setTimeout(function( ) {

@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 0.4.2
+#  @version: 1.0.0
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -45,7 +45,7 @@ class PublishSubscribeEvent:
         else: self.tags = []
         if namespaces: self.namespaces = namespaces
         else: self.namespaces = []
-        self.data = PublishSubscribeData()
+        self.data = None #PublishSubscribeData()
         self.timestamp = int(round(time.time() * 1000))
         self._propagates = True
         self._stopped = False
@@ -301,7 +301,7 @@ def publish( target, seps, pubsub, topic, data ):
         
         if tl > 0:
             evt = PublishSubscribeEvent( target )
-            evt.data.data = data
+            evt.data = data
             evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
             
         for t in topics:
@@ -434,7 +434,7 @@ def pipeline( target, seps, pubsub, topic, data, abort=None ):
         
         if len(topics[ 1 ]) > 0:
             evt = PublishSubscribeEvent( target )
-            evt.data.data = data
+            evt.data = data
             pipeline_loop = create_pipeline_loop(evt, topics, abort)
             evt.pipeline( pipeline_loop )
             pipeline_loop( evt )
@@ -592,7 +592,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "0.4.2"
+    VERSION = "1.0.0"
     
     Event = PublishSubscribeEvent
     
@@ -624,15 +624,15 @@ class PublishSubscribe:
             if l > 2 and seps[2]: self._seps[2] = seps[2]
         return self
     
-    def trigger( self, message, data=None ):
-        if not data: data = { }
+    def trigger( self, message, data=dict() ):
+        #if data is None: data = { }
         #print( pprint.pformat(self._pubsub, 4) )
         publish( self, self._seps, self._pubsub, message, data )
         #print( pprint.pformat(self._pubsub, 4) )
         return self
     
-    def pipeline( self, message, data=None, abort=None ):
-        if not data: data = { }
+    def pipeline( self, message, data=dict(), abort=None ):
+        #if data is None: data = { }
         #print( pprint.pformat(self._pubsub, 4) )
         pipeline( self, self._seps, self._pubsub, message, data, abort )
         #print( pprint.pformat(self._pubsub, 4) )
