@@ -3,7 +3,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/JS
 *
-*  @version: 1.0.0
+*  @version: 1.1.0
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -163,7 +163,7 @@ class PublishSubscribeEvent
 
 class PublishSubscribe implements PublishSubscribeInterface
 {
-    const VERSION = "1.0.0";
+    const VERSION = "1.1.0";
     const TOPIC_SEP = '/';
     const TAG_SEP = '#';
     const NS_SEP = '@';
@@ -506,7 +506,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         }
     }
     
-    protected static function create_pipeline_loop( &$evt, &$topics, $abort=null )
+    protected static function create_pipeline_loop( &$evt, &$topics, $abort=null, $finish=null )
     {
         $topTopic = $topics[ 0 ];
         $namespaces = $topics[ 2 ];
@@ -519,7 +519,8 @@ class PublishSubscribe implements PublishSubscribeInterface
         'topics' =>& $topics,
         'namespaces' =>& $namespaces,
         'hasNamespace' => false,
-        'abort'=> $abort
+        'abort'=> $abort,
+        'finish'=> $finish
         ));
         
         if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
@@ -542,8 +543,12 @@ class PublishSubscribe implements PublishSubscribeInterface
                 // stop event bubble propagation
                 if ( $evt->aborted() || !$evt->propagates() )
                 {
-                    if ( $evt->aborted() && is_callable($non_local->abort) ) 
+                    if ( $evt->aborted() && is_callable($non_local->abort) )
+                    {
                         call_user_func( $non_local->abort, $evt );
+                        if ( is_callable($non_local->finish) )
+                            call_user_func( $non_local->finish, $evt );
+                    }
                     return false;
                 }
                 
@@ -568,8 +573,12 @@ class PublishSubscribe implements PublishSubscribeInterface
                     // unsubscribeOneOffs
                     self::unsubscribe_oneoffs( $non_local->subscribers );
                     
-                    if ( $evt->aborted() && is_callable($non_local->abort) ) 
+                    if ( $evt->aborted() && is_callable($non_local->abort) )
+                    {
                         call_user_func( $non_local->abort, $evt );
+                        if ( is_callable($non_local->finish) )
+                            call_user_func( $non_local->finish, $evt );
+                    }
                     return false;
                 }
                 
@@ -608,6 +617,11 @@ class PublishSubscribe implements PublishSubscribeInterface
             // unsubscribeOneOffs
             self::unsubscribe_oneoffs( $non_local->subscribers );
             
+            if ( is_callable($non_local->finish) )
+            {
+                call_user_func( $non_local->finish, $evt );
+            }
+            
             if ( $evt )
             {
                 $evt->non_local->dispose();
@@ -618,7 +632,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         }
     }
     
-    protected static function static_pipeline( &$target, $seps, &$pubsub, $topic, &$data, $abort=null )
+    protected static function static_pipeline( &$target, $seps, &$pubsub, $topic, &$data, $abort=null, $finish=null )
     {
         if ( !empty($pubsub) )
         {
@@ -629,7 +643,7 @@ class PublishSubscribe implements PublishSubscribeInterface
             {
                 $evt = new PublishSubscribeEvent( $target );
                 $evt->data =& $data;
-                $evt->pipeline( self::create_pipeline_loop($evt, $topics, $abort) );
+                $evt->pipeline( self::create_pipeline_loop($evt, $topics, $abort, $finish) );
                 self::pipeline_loop( $evt );
             }
         }
@@ -897,12 +911,12 @@ class PublishSubscribe implements PublishSubscribeInterface
         return $this;
     }
     
-    public function pipeline( $message, $data=array(), $abort=null/*, $delay=0*/ ) 
+    public function pipeline( $message, $data=array(), $abort=null, $finish=null/*, $delay=0*/ ) 
     {
         //$delay = intval($delay);
         //if ( !$data ) $data = array();
         //print_r($this->_pubsub);
-        self::static_pipeline( $this, $this->_seps, $this->_pubsub, $message, $data, $abort );
+        self::static_pipeline( $this, $this->_seps, $this->_pubsub, $message, $data, $abort, $finish );
         //print_r($this->_pubsub);
         return $this;
     }

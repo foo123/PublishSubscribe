@@ -2,7 +2,7 @@
 *  PublishSubscribe
 *  A simple publish-subscribe implementation for PHP, Python, Node/XPCOM/JS
 *
-*  @version: 1.0.0
+*  @version: 1.1.0
 *  https://github.com/foo123/PublishSubscribe
 *
 **/
@@ -23,7 +23,7 @@ else if ( !(name in root) ) /* Browser/WebWorker/.. */
     /* module factory */        function ModuleFactory__PublishSubscribe( undef ){
 "use strict";
 
-var __version__ = "1.0.0", 
+var __version__ = "1.1.0", 
     PROTO = 'prototype', HAS = Object[PROTO].hasOwnProperty,
     TOPIC_SEP = '/', TAG_SEP = '#', NS_SEP = '@',
     OTOPIC_SEP = '/', OTAG_SEP = '#', ONS_SEP = '@',
@@ -516,7 +516,7 @@ function publish( target, seps, pubsub, topic, data )
     }
 }
 
-function create_pipeline_loop( evt, topics, abort )
+function create_pipeline_loop( evt, topics, abort, finish )
 {
     var topTopic = topics[ 0 ],
         namespaces = topics[ 2 ],
@@ -529,7 +529,8 @@ function create_pipeline_loop( evt, topics, abort )
         'topics': topics,
         'namespaces': namespaces,
         'hasNamespace': false,
-        'abort': abort
+        'abort': abort,
+        'finish': finish
     });
     evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
     var pipeline_loop = function pipeline_loop( evt ) {
@@ -545,7 +546,12 @@ function create_pipeline_loop( evt, topics, abort )
                 // stop event propagation
                 if ( evt.aborted() || !evt.propagates() ) 
                 {
-                    if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt );
+                    if ( evt.aborted() && 'function' === typeof non_local.abort )
+                    {
+                        non_local.abort( evt );
+                        if ( 'function' === typeof non_local.finish )
+                            non_local.finish( evt );
+                    }
                     return false;
                 }
                 
@@ -568,7 +574,12 @@ function create_pipeline_loop( evt, topics, abort )
                     // unsubscribeOneOffs
                     unsubscribe_oneoffs( non_local.subscribers );
                     
-                    if ( evt.aborted() && 'function' === typeof non_local.abort ) non_local.abort( evt );
+                    if ( evt.aborted() && 'function' === typeof non_local.abort )
+                    {
+                        non_local.abort( evt );
+                        if ( 'function' === typeof non_local.finish )
+                            non_local.finish( evt );
+                    }
                     return false;
                 }
                 
@@ -606,6 +617,11 @@ function create_pipeline_loop( evt, topics, abort )
             // unsubscribeOneOffs
             unsubscribe_oneoffs( non_local.subscribers );
             
+            if ( 'function' === typeof non_local.finish )
+            {
+                non_local.finish( evt );
+            }
+            
             if ( evt )
             {
                 evt.non_local.dispose();
@@ -618,7 +634,7 @@ function create_pipeline_loop( evt, topics, abort )
     return pipeline_loop;
 }
 
-function pipeline( target, seps, pubsub, topic, data, abort )
+function pipeline( target, seps, pubsub, topic, data, abort, finish )
 {
     if ( pubsub )
     {
@@ -627,7 +643,7 @@ function pipeline( target, seps, pubsub, topic, data, abort )
         {
             evt = new PublishSubscribeEvent( target );
             evt.data = data;
-            evt.pipeline( pipeline_loop = create_pipeline_loop( evt, topics, abort ) );
+            evt.pipeline( pipeline_loop = create_pipeline_loop( evt, topics, abort, finish ) );
             pipeline_loop( evt );
         }
     }
@@ -914,22 +930,22 @@ PublishSubscribe[PROTO] = {
         return self;
     }
     
-    ,pipeline: function( message, data, abort, delay ) {
+    ,pipeline: function( message, data, abort, finish, delay ) {
         var self = this;
-        if ( 4 > arguments.length ) delay = 0;
+        if ( 5 > arguments.length ) delay = 0;
         delay = +delay;
         
         if ( 2 > arguments.length ) data = { };
         if ( delay > 0 )
         {
             setTimeout(function( ) {
-                pipeline( self, self._seps, self._pubsub$, message, data, abort||null );
+                pipeline( self, self._seps, self._pubsub$, message, data, abort||null, finish||null );
             }, delay);
         }
         else
         {
             //console.log(JSON.stringify(self._pubsub$, null, 4));
-            pipeline( self, self._seps, self._pubsub$, message, data, abort||null );
+            pipeline( self, self._seps, self._pubsub$, message, data, abort||null, finish||null );
             //console.log(JSON.stringify(self._pubsub$, null, 4));
         }
         return self;

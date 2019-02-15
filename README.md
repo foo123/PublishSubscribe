@@ -91,7 +91,8 @@ pb.trigger( topic_with_tags_namespaces, data );
 // pipeline allows to call subscribers (of given topic/message) asynchronously via a pipeline
 // each subscriber calls next subscriber via the (passed) event's .next() method
 // pipeline can be aborted via the (passed) event's .abort() method
-pb.pipeline( topic_with_tags_namespaces, data [, abort_callback] );
+// optional finish_callback will be called when the pipeline finishes the chain or event is aborted
+pb.pipeline( topic_with_tags_namespaces, data [, abort_callback [, finish_callback]] );
 
 // dispose PublishSubscribe instance
 pb.disposePubSub( );

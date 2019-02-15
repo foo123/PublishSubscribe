@@ -3,7 +3,7 @@
 #  PublishSubscribe
 #  A simple publish-subscribe implementation for PHP, Python, Node/JS
 #
-#  @version: 1.0.0
+#  @version: 1.1.0
 #  https://github.com/foo123/PublishSubscribe
 #
 ##
@@ -345,7 +345,7 @@ def publish( target, seps, pubsub, topic, data ):
         
 
 
-def create_pipeline_loop(evt, topics, abort):
+def create_pipeline_loop(evt, topics, abort, finish):
     topTopic = topics[ 0 ]
     namespaces = topics[ 2 ]
     topics = topics[ 1 ]
@@ -357,7 +357,8 @@ def create_pipeline_loop(evt, topics, abort):
         'topics': topics,
         'namespaces': namespaces,
         'hasNamespace': False,
-        'abort': abort
+        'abort': abort,
+        'finish': abort
     })
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
@@ -372,7 +373,10 @@ def create_pipeline_loop(evt, topics, abort):
                 
                 # stop event propagation
                 if evt.aborted() or not evt.propagates():
-                    if evt.aborted() and callable(non_local.abort): non_local.abort( evt )
+                    if evt.aborted() and callable(non_local.abort):
+                        non_local.abort( evt )
+                        if callable(non_local.finish):
+                            non_local.finish( evt )
                     return False
                     
                 subTopic = non_local.topics[non_local.t][ 0 ]
@@ -392,7 +396,10 @@ def create_pipeline_loop(evt, topics, abort):
                     # unsubscribeOneOffs
                     unsubscribe_oneoffs( non_local.subscribers )
                     
-                    if evt.aborted() and callable(non_local.abort): non_local.abort( evt )
+                    if evt.aborted() and callable(non_local.abort):
+                        non_local.abort( evt )
+                        if callable(non_local.finish):
+                            non_local.finish( evt )
                     return False
                     
                 done = False
@@ -419,6 +426,9 @@ def create_pipeline_loop(evt, topics, abort):
             # unsubscribeOneOffs
             unsubscribe_oneoffs( non_local.subscribers )
             
+            if callable(non_local.finish):
+                non_local.finish( evt )
+                
             if evt:
                 evt.non_local.dispose()
                 evt.non_local = None
@@ -428,14 +438,14 @@ def create_pipeline_loop(evt, topics, abort):
     return pipeline_loop
     
     
-def pipeline( target, seps, pubsub, topic, data, abort=None ):
+def pipeline( target, seps, pubsub, topic, data, abort=None, finish=None ):
     if pubsub:
         topics = get_subscribed_topics( seps, pubsub, topic )
         
         if len(topics[ 1 ]) > 0:
             evt = PublishSubscribeEvent( target )
             evt.data = data
-            pipeline_loop = create_pipeline_loop(evt, topics, abort)
+            pipeline_loop = create_pipeline_loop(evt, topics, abort, finish)
             evt.pipeline( pipeline_loop )
             pipeline_loop( evt )
         
@@ -592,7 +602,7 @@ class PublishSubscribe:
     https://github.com/foo123/PublishSubscribe
     """
     
-    VERSION = "1.0.0"
+    VERSION = "1.1.0"
     
     Event = PublishSubscribeEvent
     
@@ -631,10 +641,10 @@ class PublishSubscribe:
         #print( pprint.pformat(self._pubsub, 4) )
         return self
     
-    def pipeline( self, message, data=dict(), abort=None ):
+    def pipeline( self, message, data=dict(), abort=None, finish=None ):
         #if data is None: data = { }
         #print( pprint.pformat(self._pubsub, 4) )
-        pipeline( self, self._seps, self._pubsub, message, data, abort )
+        pipeline( self, self._seps, self._pubsub, message, data, abort, finish )
         #print( pprint.pformat(self._pubsub, 4) )
         return self
     
