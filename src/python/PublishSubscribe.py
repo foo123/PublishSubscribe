@@ -358,12 +358,15 @@ def create_pipeline_loop(evt, topics, abort, finish):
         'namespaces': namespaces,
         'hasNamespace': False,
         'abort': abort,
-        'finish': abort
+        'finish': finish,
+        'finished': False
     })
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
     def pipeline_loop( evt ):
         non_local = evt.non_local
+        
+        if not non_local: return
         
         if non_local.t < len(non_local.topics):
             if non_local.start_topic:
@@ -422,12 +425,15 @@ def create_pipeline_loop(evt, topics, abort, finish):
                 non_local.t += 1
                 non_local.start_topic = True
             
-        else:
-            # unsubscribeOneOffs
-            unsubscribe_oneoffs( non_local.subscribers )
-            
-            if callable(non_local.finish):
-                non_local.finish( evt )
+        if non_local.t >= len(non_local.topics):
+            if non_local.finished is False: 
+                non_local.finished = True
+                
+                # unsubscribeOneOffs
+                unsubscribe_oneoffs( non_local.subscribers )
+                
+                if callable(non_local.finish):
+                    non_local.finish( evt )
                 
             if evt:
                 evt.non_local.dispose()

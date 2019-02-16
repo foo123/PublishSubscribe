@@ -520,7 +520,8 @@ class PublishSubscribe implements PublishSubscribeInterface
         'namespaces' =>& $namespaces,
         'hasNamespace' => false,
         'abort'=> $abort,
-        'finish'=> $finish
+        'finish'=> $finish,
+        'finished'=> false
         ));
         
         if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
@@ -532,6 +533,8 @@ class PublishSubscribe implements PublishSubscribeInterface
     public static function pipeline_loop( $evt )
     {
         $non_local =& $evt->non_local;
+        
+        if ( !$non_local ) return;
         
         if ($non_local->t < count($non_local->topics))
         {
@@ -612,14 +615,19 @@ class PublishSubscribe implements PublishSubscribeInterface
                 $non_local->start_topic = true;
             }
         }
-        else
+        if ($non_local->t >= count($non_local->topics))
         {
-            // unsubscribeOneOffs
-            self::unsubscribe_oneoffs( $non_local->subscribers );
-            
-            if ( is_callable($non_local->finish) )
+            if ( false === $non_local->finished )
             {
-                call_user_func( $non_local->finish, $evt );
+                $non_local->finished = true;
+                
+                // unsubscribeOneOffs
+                self::unsubscribe_oneoffs( $non_local->subscribers );
+                
+                if ( is_callable($non_local->finish) )
+                {
+                    call_user_func( $non_local->finish, $evt );
+                }
             }
             
             if ( $evt )

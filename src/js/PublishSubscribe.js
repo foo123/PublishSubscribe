@@ -530,11 +530,14 @@ function create_pipeline_loop( evt, topics, abort, finish )
         'namespaces': namespaces,
         'hasNamespace': false,
         'abort': abort,
-        'finish': finish
+        'finish': finish,
+        'finished': false
     });
     evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
     var pipeline_loop = function pipeline_loop( evt ) {
         var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
+        
+        if ( !non_local ) return;
         
         if (non_local.t < non_local.topics.length)
         {
@@ -612,14 +615,19 @@ function create_pipeline_loop( evt, topics, abort, finish )
                 non_local.start_topic = true;
             }
         }
-        else 
+        if (non_local.t >= non_local.topics.length)
         {
-            // unsubscribeOneOffs
-            unsubscribe_oneoffs( non_local.subscribers );
-            
-            if ( 'function' === typeof non_local.finish )
+            if ( false === non_local.finished )
             {
-                non_local.finish( evt );
+                non_local.finished = true;
+                
+                // unsubscribeOneOffs
+                unsubscribe_oneoffs( non_local.subscribers );
+                
+                if ( 'function' === typeof non_local.finish )
+                {
+                    non_local.finish( evt );
+                }
             }
             
             if ( evt )
