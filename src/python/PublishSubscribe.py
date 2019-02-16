@@ -364,9 +364,9 @@ def create_pipeline_loop(evt, topics, abort, finish):
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
     def pipeline_loop( evt ):
-        non_local = evt.non_local
+        if not evt.non_local: return
         
-        if not non_local: return
+        non_local = evt.non_local
         
         if non_local.t < len(non_local.topics):
             if non_local.start_topic:
@@ -421,10 +421,14 @@ def create_pipeline_loop(evt, topics, abort, finish):
                     subscriber[ 4 ] = 1 # subscriber called
                     res = subscriber[ 0 ]( evt )
                     
+            if not evt.non_local: return
+            
             if non_local.s>=len(non_local.subscribers['list']):
                 non_local.t += 1
                 non_local.start_topic = True
             
+        if not evt.non_local: return
+        
         if non_local.t >= len(non_local.topics):
             if non_local.finished is False: 
                 non_local.finished = True

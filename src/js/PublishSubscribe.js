@@ -535,9 +535,9 @@ function create_pipeline_loop( evt, topics, abort, finish )
     });
     evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
     var pipeline_loop = function pipeline_loop( evt ) {
-        var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
+        if ( !evt.non_local ) return;
         
-        if ( !non_local ) return;
+        var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
         
         if (non_local.t < non_local.topics.length)
         {
@@ -609,12 +609,17 @@ function create_pipeline_loop( evt, topics, abort, finish )
                 }
             }
             
+            if ( !evt.non_local ) return;
+            
             if (non_local.s >= non_local.subscribers.list.length)
             {
                 non_local.t += 1;
                 non_local.start_topic = true;
             }
         }
+        
+        if ( !evt.non_local ) return;
+        
         if (non_local.t >= non_local.topics.length)
         {
             if ( false === non_local.finished )

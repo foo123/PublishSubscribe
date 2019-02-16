@@ -532,9 +532,9 @@ class PublishSubscribe implements PublishSubscribeInterface
     
     public static function pipeline_loop( $evt )
     {
-        $non_local =& $evt->non_local;
+        if ( !$evt->non_local ) return;
         
-        if ( !$non_local ) return;
+        $non_local =& $evt->non_local;
         
         if ($non_local->t < count($non_local->topics))
         {
@@ -609,12 +609,17 @@ class PublishSubscribe implements PublishSubscribeInterface
                 }
             }        
             
+            if ( !$evt->non_local ) return;
+
             if ($non_local->s>=count($non_local->subscribers['list']))
             {
                 $non_local->t += 1;
                 $non_local->start_topic = true;
             }
         }
+        
+        if ( !$evt->non_local ) return;
+        
         if ($non_local->t >= count($non_local->topics))
         {
             if ( false === $non_local->finished )
