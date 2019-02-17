@@ -18,7 +18,7 @@ else if ( ('function'===typeof define)&&define.amd&&('function'===typeof require
     define(name,['module'],function(module){factory.moduleUri = module.uri; return factory.call(root);});
 else if ( !(name in root) ) /* Browser/WebWorker/.. */
     (root[name] = factory.call(root)||1)&&('function'===typeof(define))&&define.amd&&define(function(){return root[name];} );
-}(  /* current root */          this, 
+}(  /* current root */          'undefined' !== typeof self ? self : this, 
     /* module name */           "PublishSubscribe",
     /* module factory */        function ModuleFactory__PublishSubscribe( undef ){
 "use strict";
@@ -530,14 +530,13 @@ function create_pipeline_loop( evt, topics, abort, finish )
         'namespaces': namespaces,
         'hasNamespace': false,
         'abort': abort,
-        'finish': finish,
-        'finished': false
+        'finish': finish
     });
     evt.originalTopic = topTopic ? topTopic.split( OTOPIC_SEP ) : [ ];
     var pipeline_loop = function pipeline_loop( evt ) {
         if ( !evt.non_local ) return;
         
-        var res, non_local = evt.non_local, subTopic, tags, subscriber, done;
+        var res, non_local = evt.non_local, subTopic, tags, subscriber, done, abort, finish;
         
         if (non_local.t < non_local.topics.length)
         {
@@ -551,9 +550,15 @@ function create_pipeline_loop( evt, topics, abort, finish )
                 {
                     if ( evt.aborted() && 'function' === typeof non_local.abort )
                     {
-                        non_local.abort( evt );
+                        abort = non_local.abort;
+                        non_local.abort = null;
+                        abort( evt );
                         if ( 'function' === typeof non_local.finish )
-                            non_local.finish( evt );
+                        {
+                            finish = non_local.finish;
+                            non_local.finish = null;
+                            finish( evt );
+                        }
                     }
                     return false;
                 }
@@ -579,9 +584,15 @@ function create_pipeline_loop( evt, topics, abort, finish )
                     
                     if ( evt.aborted() && 'function' === typeof non_local.abort )
                     {
-                        non_local.abort( evt );
+                        abort = non_local.abort;
+                        non_local.abort = null;
+                        abort( evt );
                         if ( 'function' === typeof non_local.finish )
-                            non_local.finish( evt );
+                        {
+                            finish = non_local.finish;
+                            non_local.finish = null;
+                            finish( evt );
+                        }
                     }
                     return false;
                 }
@@ -599,6 +610,13 @@ function create_pipeline_loop( evt, topics, abort, finish )
                     }
                     non_local.s += 1;
                 }
+                
+                if (non_local.s >= non_local.subscribers.list.length)
+                {
+                    non_local.t += 1;
+                    non_local.start_topic = true;
+                }
+                
                 if ( done )
                 {
                     if ( non_local.hasNamespace ) evt.namespaces = subscriber[ 3 ].slice( 0 );
@@ -608,10 +626,7 @@ function create_pipeline_loop( evt, topics, abort, finish )
                     res = subscriber[ 0 ]( evt );
                 }
             }
-            
-            if ( !evt.non_local ) return;
-            
-            if (non_local.s >= non_local.subscribers.list.length)
+            else
             {
                 non_local.t += 1;
                 non_local.start_topic = true;
@@ -622,22 +637,29 @@ function create_pipeline_loop( evt, topics, abort, finish )
         
         if (non_local.t >= non_local.topics.length)
         {
-            if ( false === non_local.finished )
+            // unsubscribeOneOffs
+            unsubscribe_oneoffs( non_local.subscribers );
+            
+            if ( 'function' === typeof non_local.finish )
             {
-                non_local.finished = true;
-                
-                // unsubscribeOneOffs
-                unsubscribe_oneoffs( non_local.subscribers );
-                
-                if ( 'function' === typeof non_local.finish )
-                {
-                    non_local.finish( evt );
-                }
+                finish = non_local.finish;
+                non_local.finish = null;
+                finish( evt );
             }
             
             if ( evt )
             {
-                evt.non_local.dispose();
+                evt.non_local.dispose([
+                    't',
+                    's',
+                    'start_topic',
+                    'subscribers',
+                    'topics',
+                    'namespaces',
+                    'hasNamespace',
+                    'abort',
+                    'finish'
+                ]);
                 evt.non_local = null;
                 evt.dispose();
                 evt = null;

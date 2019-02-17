@@ -358,8 +358,7 @@ def create_pipeline_loop(evt, topics, abort, finish):
         'namespaces': namespaces,
         'hasNamespace': False,
         'abort': abort,
-        'finish': finish,
-        'finished': False
+        'finish': finish
     })
     evt.originalTopic = topTopic.split(OTOPIC_SEP) if topTopic else []
     
@@ -377,9 +376,13 @@ def create_pipeline_loop(evt, topics, abort, finish):
                 # stop event propagation
                 if evt.aborted() or not evt.propagates():
                     if evt.aborted() and callable(non_local.abort):
-                        non_local.abort( evt )
+                        abort = non_local.abort
+                        non_local.abort = None
+                        abort( evt )
                         if callable(non_local.finish):
-                            non_local.finish( evt )
+                            finish = non_local.finish
+                            non_local.finish = None
+                            finish( evt )
                     return False
                     
                 subTopic = non_local.topics[non_local.t][ 0 ]
@@ -400,9 +403,13 @@ def create_pipeline_loop(evt, topics, abort, finish):
                     unsubscribe_oneoffs( non_local.subscribers )
                     
                     if evt.aborted() and callable(non_local.abort):
-                        non_local.abort( evt )
+                        abort = non_local.abort
+                        non_local.abort = None
+                        abort( evt )
                         if callable(non_local.finish):
-                            non_local.finish( evt )
+                            finish = non_local.finish
+                            non_local.finish = None
+                            finish( evt )
                     return False
                     
                 done = False
@@ -414,33 +421,47 @@ def create_pipeline_loop(evt, topics, abort, finish):
                         done = True
                     
                     non_local.s += 1
+                
+                if non_local.s>=len(non_local.subscribers['list']):
+                    non_local.t += 1
+                    non_local.start_topic = True
+                
                 if done:
                     if non_local.hasNamespace: evt.namespaces = subscriber[ 3 ][:]
                     else: evt.namespaces = []
                     
                     subscriber[ 4 ] = 1 # subscriber called
                     res = subscriber[ 0 ]( evt )
-                    
-            if not evt.non_local: return
             
-            if non_local.s>=len(non_local.subscribers['list']):
+            else:
                 non_local.t += 1
                 non_local.start_topic = True
+                    
             
         if not evt.non_local: return
         
         if non_local.t >= len(non_local.topics):
-            if non_local.finished is False: 
-                non_local.finished = True
-                
-                # unsubscribeOneOffs
-                unsubscribe_oneoffs( non_local.subscribers )
-                
-                if callable(non_local.finish):
-                    non_local.finish( evt )
+            
+            # unsubscribeOneOffs
+            unsubscribe_oneoffs( non_local.subscribers )
+            
+            if callable(non_local.finish):
+                finish = non_local.finish
+                non_local.finish = None
+                finish( evt )
                 
             if evt:
-                evt.non_local.dispose()
+                evt.non_local.dispose([
+                    't',
+                    's',
+                    'start_topic',
+                    'subscribers',
+                    'topics',
+                    'namespaces',
+                    'hasNamespace',
+                    'abort',
+                    'finish'
+                ])
                 evt.non_local = None
                 evt.dispose()
                 evt = None

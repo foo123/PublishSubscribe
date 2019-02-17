@@ -520,8 +520,7 @@ class PublishSubscribe implements PublishSubscribeInterface
         'namespaces' =>& $namespaces,
         'hasNamespace' => false,
         'abort'=> $abort,
-        'finish'=> $finish,
-        'finished'=> false
+        'finish'=> $finish
         ));
         
         if ( $topTopic ) $evt->originalTopic = explode( self::OTOPIC_SEP, $topTopic );
@@ -548,9 +547,15 @@ class PublishSubscribe implements PublishSubscribeInterface
                 {
                     if ( $evt->aborted() && is_callable($non_local->abort) )
                     {
-                        call_user_func( $non_local->abort, $evt );
+                        $abort = $non_local->abort;
+                        $non_local->abort = null;
+                        call_user_func( $abort, $evt );
                         if ( is_callable($non_local->finish) )
-                            call_user_func( $non_local->finish, $evt );
+                        {
+                            $finish = $non_local->finish;
+                            $non_local->finish = null;
+                            call_user_func( $finish, $evt );
+                        }
                     }
                     return false;
                 }
@@ -578,9 +583,15 @@ class PublishSubscribe implements PublishSubscribeInterface
                     
                     if ( $evt->aborted() && is_callable($non_local->abort) )
                     {
-                        call_user_func( $non_local->abort, $evt );
+                        $abort = $non_local->abort;
+                        $non_local->abort = null;
+                        call_user_func( $abort, $evt );
                         if ( is_callable($non_local->finish) )
-                            call_user_func( $non_local->finish, $evt );
+                        {
+                            $finish = $non_local->finish;
+                            $non_local->finish = null;
+                            call_user_func( $finish, $evt );
+                        }
                     }
                     return false;
                 }
@@ -599,6 +610,13 @@ class PublishSubscribe implements PublishSubscribeInterface
                     }
                     $non_local->s += 1;
                 }
+                
+                if ($non_local->s>=count($non_local->subscribers['list']))
+                {
+                    $non_local->t += 1;
+                    $non_local->start_topic = true;
+                }
+                
                 if ( $done )
                 {
                     if ( $non_local->hasNamespace ) $evt->namespaces = array_merge(array(), $subscriber[ 3 ]);
@@ -607,11 +625,8 @@ class PublishSubscribe implements PublishSubscribeInterface
                     $subscriber[ 4 ] = 1; // subscriber called
                     $res = call_user_func( $subscriber[ 0 ], $evt );
                 }
-            }        
-            
-            if ( !$evt->non_local ) return;
-
-            if ($non_local->s>=count($non_local->subscribers['list']))
+            }
+            else
             {
                 $non_local->t += 1;
                 $non_local->start_topic = true;
@@ -622,22 +637,29 @@ class PublishSubscribe implements PublishSubscribeInterface
         
         if ($non_local->t >= count($non_local->topics))
         {
-            if ( false === $non_local->finished )
+            // unsubscribeOneOffs
+            self::unsubscribe_oneoffs( $non_local->subscribers );
+            
+            if ( is_callable($non_local->finish) )
             {
-                $non_local->finished = true;
-                
-                // unsubscribeOneOffs
-                self::unsubscribe_oneoffs( $non_local->subscribers );
-                
-                if ( is_callable($non_local->finish) )
-                {
-                    call_user_func( $non_local->finish, $evt );
-                }
+                $finish = $non_local->finish;
+                $non_local->finish = null;
+                call_user_func( $finish, $evt );
             }
             
             if ( $evt )
             {
-                $evt->non_local->dispose();
+                $evt->non_local->dispose(array(
+                    't',
+                    's',
+                    'start_topic',
+                    'subscribers',
+                    'topics',
+                    'namespaces',
+                    'hasNamespace',
+                    'abort',
+                    'finish'
+                ));
                 $evt->non_local = null;
                 $evt->dispose();
                 $evt = null;
